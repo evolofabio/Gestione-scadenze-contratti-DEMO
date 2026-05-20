@@ -109,67 +109,7 @@ let authUser=null,authFirebaseApp=null;
 let autoSendInterval=null;
 
 
-// Inizializza Firebase App principale se non già presente
-function ensureFirebaseApp() {
-  // If Firebase script hasn't loaded yet, signal failure
-  if (typeof window.firebase === 'undefined') return false;
-  // If an app is already initialized, we're good
-  if (firebase.apps && firebase.apps.length > 0) return true;
-
-  // Configurazione: usa localStorage se presente, altrimenti usa il config hardcoded
-  var config = null;
-  if (typeof defaultAuth === 'function') {
-    config = load(SK.auth, defaultAuth);
-  } else {
-    config = load(SK.sync, defaultSync);
-  }
-  // Fallback al config hardcoded se mancano campi essenziali
-  if (!config || !config.apiKey || !config.authDomain || !config.databaseURL) {
-    config = Object.assign({}, FIREBASE_CONFIG, config || {});
-  }
-  if (config && config.apiKey && config.authDomain && config.databaseURL) {
-    try {
-      firebase.initializeApp({
-        apiKey: config.apiKey,
-        authDomain: config.authDomain,
-        databaseURL: config.databaseURL
-      });
-      return true;
-    } catch (e) {
-      console.error('firebase.initializeApp error', e);
-      return false;
-    }
-  } else {
-    // Mostra form per inserire le chiavi Firebase
-    var el = document.getElementById('login-screen') || document.body;
-    if (el) {
-      el.innerHTML = `<div class="login-card">
-        <h3>Configurazione Firebase mancante</h3>
-        <p>Inserisci qui le chiavi di accesso del tuo progetto Firebase:</p>
-        <div class="form-field"><label>API Key</label><input id="firebase-api-key" class="f-input" type="text" placeholder="API Key"></div>
-        <div class="form-field"><label>Auth Domain</label><input id="firebase-auth-domain" class="f-input" type="text" placeholder="Auth Domain"></div>
-        <div class="form-field"><label>Database URL</label><input id="firebase-db-url" class="f-input" type="text" placeholder="Database URL"></div>
-        <button class="tb-btn primary" style="margin-top:16px" onclick="window.saveFirebaseConfig()">Salva e ricarica</button>
-      </div>`;
-      window.saveFirebaseConfig = function() {
-        var apiKey = (document.getElementById('firebase-api-key')||{}).value?.trim();
-        var authDomain = (document.getElementById('firebase-auth-domain')||{}).value?.trim();
-        var databaseURL = (document.getElementById('firebase-db-url')||{}).value?.trim();
-        if (!apiKey || !authDomain || !databaseURL) {
-          showToast('Compila tutti i campi!');
-          return;
-        }
-        var cfg = { apiKey, authDomain, databaseURL };
-        try { localStorage.setItem(SK.auth, JSON.stringify(cfg)); } catch(e) {}
-        location.reload();
-      }
-    }
-    var appShell = document.getElementById('app-shell');
-    if (appShell) appShell.style.display = 'none';
-    return false;
-  }
-}
-ensureFirebaseApp();
+// (DEMO) Firebase e login disabilitati: l'app è sempre visibile
 applyTheme(state.theme);
 
 // Normalize cantieri so they are stored per azienda (first contract entry) and deduplicated
