@@ -109,3 +109,4 @@ Apri il file nel browser per vedere la dashboard in azione. L'app include:
 L'app è pubblicata automaticamente su **GitHub Pages**. Ogni push su `main` aggiorna il sito live.
 
 Per il deploy manuale: basta aprire `index.html` (o `contract_manager_dashboard.html`) in un browser.
+
