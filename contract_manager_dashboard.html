@@ -140,6 +140,15 @@
       </div>
     </header>
 
+    <div class="topbar-sub" style="display:flex;align-items:center;gap:16px;padding:0 24px 8px 24px;background:rgba(255,255,255,0.92);border-bottom:1px solid var(--border);position:sticky;top:62px;z-index:39;">
+      <span style="background:#d63c3c;color:#fff;padding:3px 14px;border-radius:16px;font-size:13px;font-weight:600;letter-spacing:1px;box-shadow:0 1px 4px rgba(0,0,0,0.08);vertical-align:middle;">DEMO</span>
+      <span id="topbar-sub-title" style="font-size:17px;font-weight:500;">Dashboard</span>
+      <div style="flex:1"></div>
+      <input type="text" placeholder="Cerca scadenze..." id="search-input-sub" style="padding:7px 14px;border-radius:8px;border:1px solid var(--border2);font-size:14px;width:220px;max-width:100%;">
+      <button class="tb-btn" onclick="toggleExportMenu(event)"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Esporta</button>
+      <button class="tb-btn primary" onclick="openAddCompanyModal()"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/></svg>Aggiungi azienda</button>
+      <button class="tb-btn" onclick="openAddEmployeeModal()"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Aggiungi dipendente</button>
+    </div>
     <main class="page-content" id="page-content">
     </main>
   </div>
