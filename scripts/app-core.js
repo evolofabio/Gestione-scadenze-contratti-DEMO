@@ -105,10 +105,9 @@ function load(key,def){return typeof def==='function'?def():def}
 let emailSettings=load(SK.settings,defaultSettings);
 let emailLog=load(SK.log,[]);
 let sentTracker=load(SK.sent,{});
-let syncConfig=load(SK.sync,defaultSync);
-// Forza sempre la sincronizzazione attiva (multi-utente ufficio)
-syncConfig.enabled=true;
-let syncState={connected:false,lastSync:null,listener:null,db:null,skipNext:false};
+// DEMO: sincronizzazione disabilitata
+let syncConfig={enabled:false};
+let syncState={};
 let authUser=null,authFirebaseApp=null;
 let autoSendInterval=null;
 

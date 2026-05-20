@@ -776,31 +776,9 @@ window.rejectUser = function(uid) {
   }).catch(() => showToast('Errore durante il rifiuto'));
 };
 
+// DEMO: autenticazione disabilitata
 function checkAuth() {
-  if (!ensureFirebaseApp()) {
-    // Firebase non inizializzato: mostra schermata di login/configurazione
-    const appShell = document.getElementById('app-shell');
-    if (appShell) appShell.style.display = 'none';
-    renderLoginScreen();
-    return;
-  }
-  if (!firebase || !firebase.auth) {
-    const appShell = document.getElementById('app-shell');
-    if (appShell) appShell.style.display = 'none';
-    renderLoginScreen('Impossibile inizializzare l\'autenticazione Firebase');
-    return;
-  }
-  firebase.auth().onAuthStateChanged(function(user) {
-    if (user) {
-      authUser = user;
-      afterLogin();
-    } else {
-      authUser = null;
-      const appShell = document.getElementById('app-shell');
-      if (appShell) appShell.style.display = 'none';
-      renderLoginScreen();
-    }
-  });
+  // Nessuna autenticazione necessaria in demo
 }
 
 // Funzioni per indeterminati / cessati / note di lavorazione (spostate qui)
