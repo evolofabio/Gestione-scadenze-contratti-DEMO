@@ -3,9 +3,6 @@
 // ═══════════════════════════════════════
 function doLogout() {
   authUser = null;
-  if (typeof firebase !== 'undefined' && firebase.auth) {
-    try { firebase.auth().signOut(); } catch(e) {}
-  }
   var appShell = document.getElementById('app-shell');
   if(appShell) appShell.style.display = 'none';
   var loginScreen = document.getElementById('login-screen');

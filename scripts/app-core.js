@@ -22,15 +22,6 @@ function defaultData(){return[
 ]} 
 
 function defaultSettings(){return{sendMethod:'mailto',emailjs:{serviceId:'',templateId:'',publicKey:''},autoSend:{enabled:false,daysBeforeExpiry:[30,15,7,3,1],checkIntervalMinutes:60}}}
-const FIREBASE_CONFIG = {
-  apiKey: 'AIzaSyArXvyeZzRZSQFMKpv1Bz6w4fAxcBRu_3U',
-  authDomain: 'gestione-scadenze-d2eed.firebaseapp.com',
-  databaseURL: 'https://gestione-scadenze-d2eed-default-rtdb.europe-west1.firebasedatabase.app/'
-};
-const ADMIN_EMAIL = 'evolo434@gmail.com';
-function isAdmin(){ return !!(authUser && authUser.email === ADMIN_EMAIL); }
-function defaultSync(){return{enabled:true,apiKey:FIREBASE_CONFIG.apiKey,databaseURL:FIREBASE_CONFIG.databaseURL,roomName:'gestione-scadenze'}}
-function defaultAuth(){return{apiKey:FIREBASE_CONFIG.apiKey,authDomain:FIREBASE_CONFIG.authDomain,databaseURL:FIREBASE_CONFIG.databaseURL}}
 
 function save(key,val){try{localStorage.setItem(key,JSON.stringify(val))}catch(e){} }
 function load(key,def){try{const r=localStorage.getItem(key);if(r!==null)return JSON.parse(r)}catch(e){}return typeof def==='function'?def():def}
