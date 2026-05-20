@@ -81,9 +81,10 @@ function showToast(msg, opts){
 // ═══════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════
+// DEMO: forza sempre dati fittizi
 let state={
   page:'dashboard',
-  companies:load(SK.data,defaultData),
+  companies:defaultData(),
   searchQuery:'',
   sortBy:'urgency',
   filterMonth:'',
@@ -95,9 +96,12 @@ let state={
   quickRenewMonths:{},
   showExportMenu:false,
   showNotifCenter:false,
-  theme:load(SK.theme,'light'),
+  theme:'light',
   sidebarCollapsed:false,
 };
+// Disabilita ogni salvataggio locale
+function save(){}
+function load(key,def){return typeof def==='function'?def():def}
 let emailSettings=load(SK.settings,defaultSettings);
 let emailLog=load(SK.log,[]);
 let sentTracker=load(SK.sent,{});
