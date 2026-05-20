@@ -1,0 +1,8 @@
+{
+  "name": "Evolution System - Gestione Scadenze Contratti",
+  "short_name": "Evolution System",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb"
+}

@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<!-- rimosso duplicato iniziale; documento principale segue -->
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Evolution System - Gestione Scadenze Contratti</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link rel="icon" href="evolution-system.png" type="image/png">
+  <link rel="apple-touch-icon" href="evolution-system.png">
+  <link rel="stylesheet" href="styles/dashboard.css">
+</head>
+<body>
+<div style="position:fixed;top:0;left:0;width:100vw;z-index:20000;text-align:center;background:#d63c3c;color:#fff;font-size:1.3rem;font-weight:bold;padding:10px 0;letter-spacing:2px;box-shadow:0 2px 8px rgba(0,0,0,0.12);">DEMO - VERSIONE DI PRESENTAZIONE (DATI FINTI)</div>
+<div id="login-screen" class="login-screen" style="margin-top:48px"></div>
+<div id="app-shell" class="app-shell" style="display:none">
+  <nav class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+      <div class="logo-mark">
+        <img src="evolution-system.png" alt="Evolution System">
+      </div>
+      <span class="logo-text">Evolution System</span>
+    </div>
+    <div class="sidebar-nav" id="sidebar-main-nav">
+      <span class="sidebar-section-label">Navigazione</span>
+      <button class="nav-item active" id="nav-dashboard" onclick="setPage('dashboard')">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        <span>Dashboard</span>
+      </button>
+      <button class="nav-item" id="nav-calendar" onclick="setPage('calendar')">
+        <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>
+        <span>Calendario</span>
+      </button>
+      <button class="nav-item" id="nav-cantieri" onclick="setPage('cantieri')">
+        <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        <span>Cantieri</span>
+        <span class="nav-badge" id="cantieri-badge" style="display:none">0</span>
+      </button>
+      <button class="nav-item" id="nav-indeterminati" onclick="setPage('indeterminati')">
+        <svg viewBox="0 0 24 24"><path d="M12 2v20"/><circle cx="12" cy="7" r="3"/></svg>
+        <span>Indeterminati</span>
+      </button>
+      <button class="nav-item" id="nav-cessati" onclick="setPage('cessati')">
+        <svg viewBox="0 0 24 24"><path d="M3 6h18M9 6v12M15 6v12"/></svg>
+        <span>Cessati</span>
+      </button>      <button class="nav-item" id="nav-gestite" onclick="setPage('gestite')">
+        <svg viewBox="0 0 24 24"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg>
+        <span>Gestite</span>
+      </button>
+      <button class="nav-item" id="nav-terminate" onclick="setPage('terminate')">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+        <span>Terminate</span>
+      </button>      <button class="nav-item" id="nav-analytics" onclick="setPage('analytics')">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        <span>Analytics</span>
+      </button>
+      <button class="nav-item" id="nav-settings" onclick="setPage('settings')">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+        <span>Impostazioni</span>
+      </button>
+      <span class="sidebar-section-label" style="margin-top:8px">Aziende</span>
+    </div>
+    <div class="sidebar-companies" id="sidebar-companies"></div>
+    <div class="sidebar-footer">
+      <button class="toggle-sidebar-btn" onclick="toggleSidebar()" id="sidebar-toggle-btn">
+        <svg viewBox="0 0 24 24" id="sidebar-toggle-icon"><path d="M15 18l-6-6 6-6"/></svg>
+        <span id="sidebar-toggle-label">Comprimi</span>
+      </button>
+    </div>
+  </nav>
+
+  <div class="main-area">
+    <header class="topbar">
+      <button class="icon-btn" onclick="toggleMobileSidebar()" id="mobile-menu-btn">
+        <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <div class="topbar-title" id="topbar-title">Dashboard</div>
+      <div class="topbar-search" id="topbar-search-wrap">
+        <span class="si"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+        <input type="text" placeholder="Cerca scadenze…" id="search-input" oninput="onSearch(this.value)">
+      </div>
+      <div class="topbar-actions">
+        <div class="export-dd" id="export-dd">
+          <button class="tb-btn" onclick="toggleExportMenu(event)">
+            <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span class="btn-label">Esporta</span>
+          </button>
+          <div class="export-menu" id="export-menu" style="display:none">
+            <button onclick="exportExcel();closeExportMenu()">
+              <svg viewBox="0 0 24 24" stroke="#2d8a4e"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              Excel (.xlsx)
+            </button>
+            <button onclick="exportPDF();closeExportMenu()">
+              <svg viewBox="0 0 24 24" stroke="#d63c3c"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              PDF (.pdf)
+            </button>
+            <button onclick="exportCSV();closeExportMenu()">
+              <svg viewBox="0 0 24 24" stroke="#2a5bd7"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              CSV (.csv)
+            </button>
+            <hr>
+            <button onclick="triggerImportExcel();closeExportMenu()">
+              <svg viewBox="0 0 24 24" stroke="#6d3fcf"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              Importa Excel
+            </button>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="tb-btn primary" onclick="openAddCompanyModal()">
+            <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/></svg>
+            <span class="btn-label">Aggiungi azienda</span>
+          </button>
+          <button class="tb-btn" onclick="openAddEmployeeModal()">
+            <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <span class="btn-label">Aggiungi dipendente</span>
+          </button>
+        </div>
+        <div style="position:relative">
+          <button class="icon-btn" onclick="toggleNotifCenter()" id="notif-btn">
+            <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+            <span class="notif-badge" id="notif-badge" style="display:none">0</span>
+          </button>
+          <div id="notif-center" class="notif-center" style="display:none"></div>
+        </div>
+        <button class="icon-btn" onclick="toggleTheme()" id="theme-btn" title="Cambia tema">
+          <svg id="theme-icon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+        </button>
+        <button class="icon-btn" onclick="doLogout()" title="Esci">
+          <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <main class="page-content" id="page-content">
+    </main>
+  </div>
+</div>
+
+<div id="sidebar-overlay" class="sidebar-overlay" onclick="toggleMobileSidebar()"></div>
+<div id="modal-layer"></div>
+
+<script src="scripts/app-core.js"></script>
+<script src="scripts/app-ui.js"></script>
+<script src="scripts/app-data.js"></script>
+<script src="scripts/app-push.js"></script>
+<script src="scripts/app-logout.js"></script>
+</script>
+<script>
+// Logout automatico alla chiusura del browser
+window.addEventListener('unload', function() {
+  if (typeof doLogout === 'function') {
+    doLogout();
+  }
+});
+</script>
+</body>
+</html>
