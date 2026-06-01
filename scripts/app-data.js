@@ -462,6 +462,17 @@ function renderRegisterScreen(msg) {
 window.showLogin = function() { renderLoginScreen(); };
 window.showRegister = function() { renderRegisterScreen(); };
 
+let currentUserRole = 'viewer';
+window.setCurrentUserRole = function(role) {
+  const normalized = String(role || '').toLowerCase();
+  currentUserRole = ['owner', 'admin', 'manager', 'viewer'].includes(normalized) ? normalized : 'viewer';
+};
+window.getCurrentUserRole = function() { return currentUserRole; };
+function isAdmin() {
+  const role = String(currentUserRole || '').toLowerCase();
+  return role === 'owner' || role === 'admin';
+}
+
 function renderPendingScreen() {
   const loginEl = document.getElementById('login-screen');
   if (!loginEl) return;
@@ -521,11 +532,10 @@ window.doRegister = function() {
   firebase.auth().createUserWithEmailAndPassword(email, password)
     .then(user => {
       authUser = user.user;
-      // L'admin si registra normalmente
-      if (email === ADMIN_EMAIL) { afterLogin(); return; }
-      // Nuovo utente: salva come pending e disconnetti in attesa di approvazione
+      // Nuovo utente: salva come pending/viewer e disconnetti in attesa di approvazione
       firebase.database().ref('pendingUsers/' + user.user.uid).set({
         email: email,
+        role: 'viewer',
         status: 'pending',
         createdAt: Date.now()
       }).then(() => {
@@ -543,8 +553,6 @@ window.doRegister = function() {
 
 function afterLogin() {
   if (!authUser) return;
-  // Admin accede direttamente senza controllo approvazione
-  if (authUser.email === ADMIN_EMAIL) { proceedAfterLogin(); return; }
   // Verifica lo stato di approvazione dell'utente nel DB
   try {
     firebase.database().ref('pendingUsers/' + authUser.uid).once('value').then(snap => {
@@ -557,7 +565,12 @@ function afterLogin() {
         firebase.auth().signOut();
         authUser = null;
         renderRejectedScreen();
+      } else if (data && data.status === 'suspended') {
+        firebase.auth().signOut();
+        authUser = null;
+        renderRejectedScreen();
       } else {
+        window.setCurrentUserRole(data?.role || 'viewer');
         proceedAfterLogin();
       }
     }).catch(() => { proceedAfterLogin(); });
@@ -741,18 +754,21 @@ window.loadAdminUsers = function() {
     if (!val) { container.innerHTML = '<div style="font-size:13px;color:var(--text3)">Nessun utente registrato.</div>'; return; }
     const users = Object.entries(val).map(([uid, data]) => ({uid, ...data}));
     users.sort((a, b) => (b.createdAt||0) - (a.createdAt||0));
-    const statusLabel = { pending: '⏳ In attesa', approved: '✅ Approvato', rejected: '❌ Rifiutato' };
+    const statusLabel = { pending: '⏳ In attesa', approved: '✅ Approvato', rejected: '❌ Rifiutato', suspended: '⛔ Sospeso' };
+    const roleLabel = { owner: 'Owner', admin: 'Admin', manager: 'Manager', viewer: 'Viewer' };
     container.innerHTML = users.map(u => `
       <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
         <div style="flex:1">
           <div style="font-size:13px;font-weight:500">${esc(u.email)}</div>
-          <div style="font-size:11px;color:var(--text3)">${statusLabel[u.status]||u.status} · ${u.createdAt ? new Date(u.createdAt).toLocaleString('it-IT') : '—'}</div>
+          <div style="font-size:11px;color:var(--text3)">${roleLabel[u.role]||u.role||'Viewer'} · ${statusLabel[u.status]||u.status} · ${u.createdAt ? new Date(u.createdAt).toLocaleString('it-IT') : '—'}</div>
         </div>
-        ${u.status === 'pending' ? `
+        ${u.role === 'owner' ? `
+          <span style="font-size:11px;color:var(--text3);font-weight:600">Protetto</span>
+        ` : u.status === 'pending' ? `
           <button class="tb-btn primary" onclick="approveUser('${esc(u.uid)}')">Approva</button>
           <button class="tb-btn" style="color:var(--danger)" onclick="rejectUser('${esc(u.uid)}')">Rifiuta</button>
         ` : u.status === 'approved' ? `
-          <button class="tb-btn" style="color:var(--danger)" onclick="rejectUser('${esc(u.uid)}')">Revoca</button>
+          <button class="tb-btn" style="color:var(--danger)" onclick="suspendUser('${esc(u.uid)}')">Sospendi</button>
         ` : `
           <button class="tb-btn primary" onclick="approveUser('${esc(u.uid)}')">Riattiva</button>
         `}
@@ -774,6 +790,14 @@ window.rejectUser = function(uid) {
     showToast('Utente rifiutato');
     loadAdminUsers();
   }).catch(() => showToast('Errore durante il rifiuto'));
+};
+
+window.suspendUser = function(uid) {
+  if (!isAdmin()) return;
+  firebase.database().ref('pendingUsers/' + uid).update({ status: 'suspended' }).then(() => {
+    showToast('Utente sospeso');
+    loadAdminUsers();
+  }).catch(() => showToast('Errore durante la sospensione'));
 };
 
 // DEMO: autenticazione disabilitata
