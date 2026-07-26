@@ -4,7 +4,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Evolution System - Gestione Scadenze Contratti</title>
+  <title>ProrogaPro — Demo Scadenze e Proroghe Contrattuali</title>
+  <meta name="description" content="Demo interattiva di ProrogaPro: dashboard, alert scadenze, cantieri, export Excel/PDF e verifica proroghe contrattuali.">
+  <meta name="robots" content="index, follow">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
@@ -12,8 +14,8 @@
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <link rel="icon" href="evolution-system.png" type="image/png">
-  <link rel="apple-touch-icon" href="evolution-system.png">
+  <link rel="icon" href="assets/prorogapro-favicon.png" type="image/png">
+  <link rel="apple-touch-icon" href="assets/prorogapro-apple-touch.png">
   <link rel="stylesheet" href="styles/dashboard.css">
 </head>
 <body>
@@ -23,9 +25,9 @@
   <nav class="sidebar" id="sidebar">
       <div class="sidebar-logo">
       <div class="logo-mark">
-        <img src="evolution-system.png" alt="Evolution System">
+        <img src="assets/prorogapro-mark.png" alt="ProrogaPro">
       </div>
-      <span class="logo-text">Evolution System</span>
+      <span class="logo-text">Proroga<span class="logo-pro">Pro</span></span>
     </div>
     <div class="sidebar-nav" id="sidebar-main-nav">
       <span class="sidebar-section-label">Navigazione</span>
@@ -76,6 +78,11 @@
   </nav>
 
   <div class="main-area">
+    <div class="demo-banner" id="demo-banner" role="status">
+      <span class="demo-banner-text"><strong>Modalità demo</strong> — dati fittizi di esempio. Le modifiche non vengono salvate in modo permanente.</span>
+      <a class="demo-banner-cta" href="#" target="_blank" rel="noopener noreferrer">Prova gratuita 14 giorni</a>
+      <button type="button" class="demo-banner-close" onclick="document.getElementById('demo-banner').hidden=true" aria-label="Chiudi banner demo">×</button>
+    </div>
     <header class="topbar">
       <button class="icon-btn" onclick="toggleMobileSidebar()" id="mobile-menu-btn">
         <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
@@ -134,8 +141,8 @@
         <button class="icon-btn" onclick="toggleTheme()" id="theme-btn" title="Cambia tema">
           <svg id="theme-icon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
         </button>
-        <button class="icon-btn" onclick="doLogout()" title="Esci">
-          <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        <button class="icon-btn" onclick="resetDemoData()" title="Reimposta demo">
+          <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
         </button>
       </div>
     </header>
@@ -148,18 +155,11 @@
 <div id="sidebar-overlay" class="sidebar-overlay" onclick="toggleMobileSidebar()"></div>
 <div id="modal-layer"></div>
 
+<script src="scripts/demo-config.js"></script>
 <script src="scripts/app-core.js"></script>
 <script src="scripts/app-ui.js"></script>
 <script src="scripts/app-data.js"></script>
 <script src="scripts/app-push.js"></script>
 <script src="scripts/app-logout.js"></script>
-<script>
-// Logout automatico alla chiusura del browser
-window.addEventListener('unload', function() {
-  if (typeof doLogout === 'function') {
-    doLogout();
-  }
-});
-</script>
 </body>
 </html>

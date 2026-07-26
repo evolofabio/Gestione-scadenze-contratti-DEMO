@@ -124,9 +124,10 @@ code{font-family:var(--fm);font-size:.85em;background:var(--surface3);padding:1p
 
 /* Logo responsive: usa l'immagine completa nella sidebar/login */
 .sidebar-logo .logo-mark{width:auto;height:auto;background:none;border-radius:0}
-.sidebar-logo .logo-mark img{height:34px;width:auto}
+.sidebar-logo .logo-mark img{height:40px;width:auto}
 .login-logo .logo-mark img{height:48px;width:auto}
 .logo-text{font-size:13px;font-weight:700;letter-spacing:.01em;color:var(--text);white-space:nowrap;overflow:hidden}
+.logo-text .logo-pro{color:#007BFF;font-weight:800}
 .sidebar-nav{flex:1;padding:12px 10px;display:flex;flex-direction:column;gap:3px}
 .sidebar-section-label{
   font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;
@@ -966,6 +967,15 @@ textarea.f-input{resize:vertical;min-height:70px;line-height:1.5}
 .login-logo{
   display:flex;align-items:center;gap:10px;margin-bottom:20px;
 }
+.login-logo--full{
+  flex-direction:column;align-items:center;text-align:center;gap:0;margin-bottom:24px;
+}
+.login-logo--full .login-logo-img{
+  width:min(280px,100%);height:auto;display:block;
+}
+.login-logo-extra{
+  margin-top:10px;font-size:14px;font-weight:600;color:var(--text2);letter-spacing:.01em;
+}
 .login-logo .logo-mark{width:36px;height:36px;border-radius:10px}
 .login-logo-text{font-size:16px;font-weight:600;color:var(--text)}
 .login-subtitle{font-size:13px;color:var(--text2);margin-bottom:22px}
@@ -1129,4 +1139,34 @@ textarea.f-input{resize:vertical;min-height:70px;line-height:1.5}
   .tb-btn{padding:8px 10px}
   .modal{width:94vw;max-width:640px}
   .sidebar-logo .logo-mark img{height:28px}
+}
+
+/* Demo banner */
+.demo-banner{
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  padding:10px 16px;
+  background:linear-gradient(90deg,var(--accent-bg),var(--amber-bg));
+  border-bottom:1px solid var(--border);
+  font-size:13px;color:var(--text2);
+}
+.demo-banner-text{flex:1;min-width:200px}
+.demo-banner-cta{
+  display:inline-flex;align-items:center;
+  padding:7px 14px;border-radius:999px;
+  background:var(--accent);color:#fff;
+  font-size:13px;font-weight:600;text-decoration:none;
+  white-space:nowrap;
+}
+.demo-banner-cta:hover{filter:brightness(1.05)}
+.demo-banner-close{
+  border:none;background:transparent;color:var(--text3);
+  font-size:22px;line-height:1;cursor:pointer;padding:0 4px;
+}
+.demo-banner-close:hover{color:var(--text)}
+.demo-info-card{border:1px solid var(--accent-bg);background:var(--surface2)}
+[data-theme="dark"] .demo-banner{background:linear-gradient(90deg,rgba(39,88,207,.15),rgba(196,126,12,.12))}
+[data-theme="dark"] .demo-banner-cta{background:#5580e8}
+@media(max-width:640px){
+  .demo-banner{padding:10px 12px}
+  .demo-banner-cta,.demo-banner-close{margin-left:auto}
 }

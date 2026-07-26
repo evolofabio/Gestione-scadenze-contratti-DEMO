@@ -289,8 +289,48 @@ function renderSettingsPage(){
   const allDays=[60,30,15,7,3,1];
   const activeDays=s.autoSend.daysBeforeExpiry||[];
   const ejsOk=isEmailJSConfigured();
+  const demo=typeof isDemoMode==='function'&&isDemoMode();
+  const trialUrl=(window.ES_DEMO&&window.ES_DEMO.trialUrl)||'#';
+  const contactEmail=(window.ES_DEMO&&window.ES_DEMO.contactEmail)||'';
 
-  return`<div class="settings-card">
+  const demoInfoCard=demo?`<div class="settings-card demo-info-card">
+    <h4><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Informazioni demo</h4>
+    <p style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:12px">Stai usando la versione dimostrativa con dati fittizi. Le modifiche restano solo nella sessione corrente del browser.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <a class="tb-btn primary" href="${escAttr(trialUrl)}" target="_blank" rel="noopener noreferrer">Prova il SaaS — trial 14 giorni</a>
+      ${contactEmail?`<a class="tb-btn" href="mailto:${escAttr(contactEmail)}?subject=Richiesta%20ProrogaPro">Contattaci</a>`:''}
+      <button class="tb-btn" onclick="resetDemoData()">Reimposta dati demo</button>
+    </div>
+  </div>`:'';
+
+  const cloudSyncCard=demo?'':`<div class="settings-card">
+    <h4><svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>Sincronizzazione Cloud (Firebase)</h4>
+    <div class="toggle-row">
+      <label class="toggle-switch"><input type="checkbox" ${syncConfig.enabled?'checked':''} onchange="toggleCloudSync(this.checked)"><span class="toggle-track"></span></label>
+      <span class="toggle-label">Attiva sincronizzazione tra dispositivi</span>
+    </div>
+    <div class="sync-grid">
+      <div class="field-group"><label>API Key</label><input class="f-input" type="text" value="${escAttr(syncConfig.apiKey)}" placeholder="AIzaSy…" onchange="saveSyncField('apiKey',this.value)"></div>
+      <div class="field-group"><label>Database URL</label><input class="f-input" type="text" value="${escAttr(syncConfig.databaseURL)}" placeholder="https://…firebaseio.com" onchange="saveSyncField('databaseURL',this.value)"></div>
+      <div class="field-group"><label>Nome stanza</label><input class="f-input" type="text" value="${escAttr(syncConfig.roomName)}" placeholder="la-mia-azienda" onchange="saveSyncField('roomName',this.value)"></div>
+    </div>
+    <div id="sync-status"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+      <button class="tb-btn" onclick="applySyncConfig()">Applica</button>
+      <button class="tb-btn" id="btn-pull" onclick="pullFromCloud()" ${!syncState.connected?'disabled':''}>Scarica dal cloud</button>
+      <button class="tb-btn" id="btn-push" onclick="forcePushToCloud()" ${!syncState.connected?'disabled':''}>Carica sul cloud</button>
+    </div>
+    <p class="field-hint" style="margin-top:8px">Crea un progetto gratuito su console.firebase.google.com → Realtime Database. Tutti i dispositivi con la stessa stanza vedranno gli stessi dati.</p>
+  </div>`;
+
+  const adminCard=(!demo&&isAdmin())?`<div class="settings-card">
+    <h4><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>Gestione utenti</h4>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:10px">Approva o rifiuta le richieste di registrazione dei collaboratori.</p>
+    <button class="tb-btn primary" onclick="loadAdminUsers()" style="margin-bottom:12px">Aggiorna lista utenti</button>
+    <div id="admin-users-list"><div style="font-size:13px;color:var(--text3)">Clicca "Aggiorna lista utenti" per vedere le richieste.</div></div>
+  </div>`:'';
+
+  return`${demoInfoCard}<div class="settings-card">
     <h4><svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>Metodo invio email</h4>
     <div class="send-method">
       <label class="method-option${s.sendMethod==='mailto'?' active':''}">
@@ -340,25 +380,7 @@ function renderSettingsPage(){
     </div>`:'<p style="font-size:13px;color:var(--text2)">Quando attivato, invia email automaticamente ai giorni selezionati prima della scadenza.</p>'}
   </div>
 
-  <div class="settings-card">
-    <h4><svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>Sincronizzazione Cloud (Firebase)</h4>
-    <div class="toggle-row">
-      <label class="toggle-switch"><input type="checkbox" ${syncConfig.enabled?'checked':''} onchange="toggleCloudSync(this.checked)"><span class="toggle-track"></span></label>
-      <span class="toggle-label">Attiva sincronizzazione tra dispositivi</span>
-    </div>
-    <div class="sync-grid">
-      <div class="field-group"><label>API Key</label><input class="f-input" type="text" value="${escAttr(syncConfig.apiKey)}" placeholder="AIzaSy…" onchange="saveSyncField('apiKey',this.value)"></div>
-      <div class="field-group"><label>Database URL</label><input class="f-input" type="text" value="${escAttr(syncConfig.databaseURL)}" placeholder="https://…firebaseio.com" onchange="saveSyncField('databaseURL',this.value)"></div>
-      <div class="field-group"><label>Nome stanza</label><input class="f-input" type="text" value="${escAttr(syncConfig.roomName)}" placeholder="la-mia-azienda" onchange="saveSyncField('roomName',this.value)"></div>
-    </div>
-    <div id="sync-status"></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-      <button class="tb-btn" onclick="applySyncConfig()">Applica</button>
-      <button class="tb-btn" id="btn-pull" onclick="pullFromCloud()" ${!syncState.connected?'disabled':''}>Scarica dal cloud</button>
-      <button class="tb-btn" id="btn-push" onclick="forcePushToCloud()" ${!syncState.connected?'disabled':''}>Carica sul cloud</button>
-    </div>
-    <p class="field-hint" style="margin-top:8px">Crea un progetto gratuito su console.firebase.google.com → Realtime Database. Tutti i dispositivi con la stessa stanza vedranno gli stessi dati.</p>
-  </div>
+  ${cloudSyncCard}
 
   <div class="settings-card">
     <h4><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><rect x="4" y="17" width="16" height="4" rx="1"/></svg>Backup e ripristino (JSON)</h4>
@@ -380,12 +402,7 @@ function renderSettingsPage(){
     <button class="tb-btn" style="margin-top:10px" onclick="clearEmailLog()">Cancella log</button>`}
   </div>
 
-  ${isAdmin() ? `<div class="settings-card">
-    <h4><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>Gestione utenti</h4>
-    <p style="font-size:13px;color:var(--text2);margin-bottom:10px">Approva o rifiuta le richieste di registrazione dei collaboratori.</p>
-    <button class="tb-btn primary" onclick="loadAdminUsers()" style="margin-bottom:12px">Aggiorna lista utenti</button>
-    <div id="admin-users-list"><div style="font-size:13px;color:var(--text3)">Clicca "Aggiorna lista utenti" per vedere le richieste.</div></div>
-  </div>` : ''}`;
+  ${adminCard}`;
 }
 
 // ═══════════════════════════════════════

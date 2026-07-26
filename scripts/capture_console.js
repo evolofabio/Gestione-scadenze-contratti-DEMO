@@ -30,9 +30,20 @@ const { chromium } = require('playwright');
     logs.push({type: 'requestfailed', url: req.url(), failure: f});
     console.warn('[requestfailed]', req.url(), f && f.errorText);
   });
+  let hasEmptyPage = false;
   try {
     await page.goto(url, { waitUntil: 'networkidle' });
     await page.waitForTimeout(4000);
+    if (strict) {
+      const metrics = await page.evaluate(() => ({
+        pageContentLen: (document.getElementById('page-content') || {}).innerHTML?.length || 0,
+        sidebarLen: (document.getElementById('sidebar-companies') || {}).innerHTML?.length || 0,
+      }));
+      if (metrics.pageContentLen < 500 || metrics.sidebarLen < 20) {
+        hasEmptyPage = true;
+        console.error('Strict check failed: dashboard not rendered on load', metrics);
+      }
+    }
   } catch(e) {
     console.error('goto error', e.message);
     logs.push({type:'goto-error', text: e.message});
@@ -42,11 +53,12 @@ const { chromium } = require('playwright');
   fs.writeFileSync(out, JSON.stringify(logs, null, 2));
   console.log('Saved', out);
 
-  if (strict && (hasConsoleError || hasPageError || hasGotoError)) {
+  if (strict && (hasConsoleError || hasPageError || hasGotoError || hasEmptyPage)) {
     const reasons = [];
     if (hasConsoleError) reasons.push('console error');
     if (hasPageError) reasons.push('page error');
     if (hasGotoError) reasons.push('navigation error');
+    if (hasEmptyPage) reasons.push('empty dashboard on load');
     console.error('Strict check failed:', reasons.join(', '));
     process.exitCode = 1;
   }

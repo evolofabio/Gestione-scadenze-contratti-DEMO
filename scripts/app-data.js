@@ -110,7 +110,7 @@ window.exportPDFCompany=name=>{
   if(!list.length){showToast('Nessun contratto per questa azienda');return}
   const {jsPDF}=window.jspdf;const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
   const safeName=String(name||'azienda').replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_-]/g,'');
-  doc.setFontSize(14);doc.setFont(undefined,'bold');doc.text(`Evolution System - ${name}`,14,14);
+  doc.setFontSize(14);doc.setFont(undefined,'bold');doc.text(`ProrogaPro - ${name}`,14,14);
   doc.setFontSize(9);doc.setFont(undefined,'normal');doc.setTextColor(100);doc.text(`Esportato il ${new Date().toLocaleDateString('it-IT')} - ${list.length} contratti`,14,20);doc.setTextColor(0);
   doc.autoTable({
     head:[['Azienda','Dipendente','Tipo Contratto','Inizio','Scadenza','Gg','Stato','Pror.']],
@@ -121,7 +121,7 @@ window.exportPDFCompany=name=>{
 }
 window.exportPDF=()=>{
   const {jsPDF}=window.jspdf;const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
-  doc.setFontSize(14);doc.setFont(undefined,'bold');doc.text('Evolution System - Gestione Scadenze Contratti',14,14);
+  doc.setFontSize(14);doc.setFont(undefined,'bold');doc.text('ProrogaPro — Scadenze e proroghe contrattuali',14,14);
   doc.setFontSize(9);doc.setFont(undefined,'normal');doc.setTextColor(100);doc.text(`Esportato il ${new Date().toLocaleDateString('it-IT')} — ${state.companies.length} contratti`,14,20);doc.setTextColor(0);
   doc.autoTable({head:[['Azienda','Dipendente','Tipo Contratto','Inizio','Scadenza','Gg','Stato','Pror.']],body:state.companies.map(c=>{const d=daysLeft(c.endDate);return[c.name,c.employeeName||'—',c.contractType,formatDate(c.startDate),formatDate(c.endDate),String(d),d<0?'Scaduto':d<=ALERT_DAYS?'Urgente':d<=30?'In scadenza':'OK',c.renewable?'Sì':'No',c.renewMonths||'',c.renewType||'',c.renewNotice||'',c.renewCount||0,c.adminEmail||'',c.companyEmail||'',c.notes||'']}).slice(0,100),startY:25,theme:'grid',styles:{fontSize:8,cellPadding:2},headStyles:{fillColor:[42,91,215],textColor:255,fontStyle:'bold'},alternateRowStyles:{fillColor:[245,244,240]}});
   doc.save(`evolution_system_gestione_scadenze_${new Date().toISOString().split('T')[0]}.pdf`);showToast('PDF esportato');
@@ -430,7 +430,7 @@ function renderLoginScreen(msg) {
   if (!loginEl) return;
   loginEl.innerHTML = `
     <div class="login-card">
-      <div class="login-logo"><div class="logo-mark"><img src="evolution-system.png" alt="Evolution System"></div><span class="login-logo-text">Evolution System - Gestione Scadenze Contratti</span></div>
+      ${renderLoginLogo()}
       <div class="login-subtitle">Accedi con email e password</div>
       <div class="login-err" id="login-err" style="display:${msg?'block':'none'}">${msg||''}</div>
       <div class="form-row single"><div class="form-field"><label>Email</label><input id="login-email" class="f-input" type="email" autocomplete="username" style="width:100%"></div></div>
@@ -447,7 +447,7 @@ function renderRegisterScreen(msg) {
   if (!loginEl) return;
   loginEl.innerHTML = `
     <div class="login-card">
-      <div class="login-logo"><div class="logo-mark"><img src="evolution-system.png" alt="Evolution System"></div><span class="login-logo-text">Evolution System - Gestione Scadenze Contratti</span></div>
+      ${renderLoginLogo()}
       <div class="login-subtitle">Crea un nuovo account</div>
       <div class="login-err" id="register-err" style="display:${msg?'block':'none'}">${msg||''}</div>
       <div class="form-row single"><div class="form-field"><label>Email</label><input id="register-email" class="f-input" type="email" autocomplete="username" style="width:100%"></div></div>
@@ -478,7 +478,7 @@ function renderPendingScreen() {
   if (!loginEl) return;
   loginEl.innerHTML = `
     <div class="login-card">
-      <div class="login-logo"><div class="logo-mark"><img src="evolution-system.png" alt="Evolution System"></div><span class="login-logo-text">Evolution System - Gestione Scadenze Contratti</span></div>
+      ${renderLoginLogo()}
       <div class="login-subtitle">Registrazione in attesa</div>
       <div style="text-align:center;padding:16px 0;color:var(--text2);font-size:14px;line-height:1.6">
         Il tuo account è in attesa di approvazione da parte dell'amministratore.<br><br>
@@ -495,7 +495,7 @@ function renderRejectedScreen() {
   if (!loginEl) return;
   loginEl.innerHTML = `
     <div class="login-card">
-      <div class="login-logo"><div class="logo-mark"><img src="evolution-system.png" alt="Evolution System"></div><span class="login-logo-text">Evolution System - Gestione Scadenze Contratti</span></div>
+      ${renderLoginLogo()}
       <div class="login-subtitle">Accesso negato</div>
       <div style="text-align:center;padding:16px 0;color:var(--text2);font-size:14px;line-height:1.6">
         La tua richiesta di registrazione è stata rifiutata.<br>Contatta l'amministratore per maggiori informazioni.
@@ -592,11 +592,11 @@ function renderLicenseScreen(licKey) {
   if (!loginEl) return;
   loginEl.innerHTML = `
     <div class="login-card license-card">
-      <div class="login-logo"><div class="logo-mark"><img src="evolution-system.png" alt="Evolution System"></div><span class="login-logo-text">Evolution System — Termini di utilizzo</span></div>
+      ${renderLoginLogo('Termini di utilizzo')}
       <div class="license-version">Versione 1.0 — Maggio 2026</div>
       <div class="license-body" id="license-body">
         <h4>Contratto di licenza d'uso del software</h4>
-        <p>Il presente Contratto di Licenza d'Uso ("Contratto") disciplina l'accesso e l'utilizzo della piattaforma <strong>Evolution System – Gestione Scadenze Contratti</strong> (il "Software"), sviluppata e di proprietà esclusiva di <strong>Evolution System di Evolo Fabio</strong> (il "Fornitore").</p>
+        <p>Il presente Contratto di Licenza d'Uso ("Contratto") disciplina l'accesso e l'utilizzo della piattaforma <strong>ProrogaPro</strong> (il "Software"), sviluppata e di proprietà esclusiva di <strong>Evolo Fabio</strong> (il "Fornitore").</p>
 
         <h4>1. Concessione di licenza</h4>
         <p>Il Fornitore concede all'Utente una licenza personale, non esclusiva, non trasferibile e revocabile per l'utilizzo del Software esclusivamente per le finalità di gestione interna dei contratti di lavoro e dei cantieri. È vietato cedere, sublicenziare, distribuire o rivendere il Software o qualsiasi parte di esso.</p>
@@ -800,9 +800,19 @@ window.suspendUser = function(uid) {
   }).catch(() => showToast('Errore durante la sospensione'));
 };
 
-// DEMO: autenticazione disabilitata
+function initDemoApp() {
+  const appShell = document.getElementById('app-shell');
+  if (appShell) appShell.style.display = 'flex';
+  const cta = document.querySelector('.demo-banner-cta');
+  if (cta && window.ES_DEMO && window.ES_DEMO.trialUrl) cta.href = window.ES_DEMO.trialUrl;
+  updateNav();
+  renderSidebarCompanies();
+  renderPage();
+  if (typeof initPushNotifications === 'function') initPushNotifications();
+}
+
 function checkAuth() {
-  // Nessuna autenticazione necessaria in demo
+  if (typeof isDemoMode === 'function' && isDemoMode()) initDemoApp();
 }
 
 // Funzioni per indeterminati / cessati / note di lavorazione (spostate qui)

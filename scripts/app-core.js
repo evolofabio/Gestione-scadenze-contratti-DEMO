@@ -4,6 +4,19 @@
 // ═══════════════════════════════════════
 const ALERT_DAYS = 6;
 const SK = { data:'cm2_data', settings:'cm2_settings', log:'cm2_log', sent:'cm2_sent', sync:'cm2_sync', auth:'cm2_auth', theme:'cm2_theme' };
+const APP_NAME = 'ProrogaPro';
+const APP_TAGLINE = 'Scadenze e proroghe contrattuali';
+const APP_LOGO = 'assets/prorogapro-mark.png';
+const APP_LOGO_FULL = 'assets/prorogapro-logo.png';
+function renderLoginLogo(extra=''){
+  const extraHtml=extra?`<div class="login-logo-extra">${esc(extra)}</div>`:'';
+  return `<div class="login-logo login-logo--full"><img src="${APP_LOGO_FULL}" alt="${APP_NAME}" class="login-logo-img">${extraHtml}</div>`;
+}
+window.APP_LOGO = APP_LOGO;
+window.APP_LOGO_FULL = APP_LOGO_FULL;
+window.renderLoginLogo = renderLoginLogo;
+window.APP_NAME = APP_NAME;
+window.APP_TAGLINE = APP_TAGLINE;
 
 function esc(s){if(!s)return'';const m={'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"};return String(s).replace(/[&<>"']/g,c=>m[c])}
 function escAttr(s){return esc(s)}
@@ -173,6 +186,28 @@ function normalizeCompanyCantieri(){
   }catch(e){console.error('normalizeCompanyCantieri',e)}
 }
 normalizeCompanyCantieri();
+
+function isDemoMode() {
+  return !!(window.ES_DEMO && window.ES_DEMO.mode);
+}
+window.isDemoMode = isDemoMode;
+
+function resetDemoData() {
+  state.companies = defaultData();
+  state.page = 'dashboard';
+  state.activeCompany = null;
+  state.searchQuery = '';
+  state.expandedCard = null;
+  state.quickRenewId = null;
+  normalizeCompanyCantieri();
+  const si = document.getElementById('search-input');
+  if (si) si.value = '';
+  updateNav();
+  renderSidebarCompanies();
+  renderPage();
+  showToast('Demo reimpostata ai dati di esempio');
+}
+window.resetDemoData = resetDemoData;
 
 // ═══════════════════════════════════════
 // THEME
