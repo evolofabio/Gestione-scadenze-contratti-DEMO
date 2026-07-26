@@ -284,53 +284,52 @@ function initCharts(){
 // ═══════════════════════════════════════
 // SETTINGS PAGE
 // ═══════════════════════════════════════
+function renderBillingSettingsCard(){
+  const s = window._billingSummary;
+  if (!s) {
+    return '<p style="font-size:13px;color:var(--text3)">Informazioni piano non disponibili.</p>';
+  }
+  const plan = s.plan_name || 'Starter';
+  const status = s.subscription_status || 'trialing';
+  const trial = s.trial_days_left != null ? ` · Trial: ${s.trial_days_left} gg` : '';
+  const contracts = s.max_contracts != null
+    ? `<p style="font-size:13px;color:var(--text2);margin-top:6px">Contratti: ${Number(s.contracts_used)||0}/${s.max_contracts}</p>`
+    : '';
+  const adminBtns = isAdmin() ? `
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+      <button class="tb-btn primary" onclick="openStripeCheckout('starter')">Passa a Starter</button>
+      <button class="tb-btn" onclick="openStripeCheckout('growth')">Growth</button>
+      <button class="tb-btn" onclick="openBillingPortal()">Portale fatturazione</button>
+    </div>` : '<p style="font-size:12px;color:var(--text3);margin-top:8px">Solo owner/admin possono gestire l\'abbonamento.</p>';
+  return `<p style="font-size:14px"><strong>${esc(plan)}</strong> — ${esc(status)}${trial}</p>${contracts}${adminBtns}`;
+}
+
 function renderSettingsPage(){
   const s=emailSettings;
   const allDays=[60,30,15,7,3,1];
   const activeDays=s.autoSend.daysBeforeExpiry||[];
   const ejsOk=isEmailJSConfigured();
-  const demo=typeof isDemoMode==='function'&&isDemoMode();
-  const trialUrl=(window.ES_DEMO&&window.ES_DEMO.trialUrl)||'#';
-  const contactEmail=(window.ES_DEMO&&window.ES_DEMO.contactEmail)||'';
 
-  const demoInfoCard=demo?`<div class="settings-card demo-info-card">
-    <h4><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Informazioni demo</h4>
-    <p style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:12px">Stai usando la versione dimostrativa con dati fittizi. Le modifiche restano solo nella sessione corrente del browser.</p>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <a class="tb-btn primary" href="${escAttr(trialUrl)}" target="_blank" rel="noopener noreferrer">Prova il SaaS — trial 14 giorni</a>
-      ${contactEmail?`<a class="tb-btn" href="mailto:${escAttr(contactEmail)}?subject=Richiesta%20ProrogaPro">Contattaci</a>`:''}
-      <button class="tb-btn" onclick="resetDemoData()">Reimposta dati demo</button>
+  return`<div class="settings-card">
+    <h4><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0116 0"/></svg>Account utente</h4>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:10px">Aggiorna email di accesso e password del tuo account.</p>
+    <div id="settings-profile-feedback" class="legacy-feedback" style="display:none"></div>
+    <div class="settings-row">
+      <div class="field-group">
+        <label>Email</label>
+        <input class="f-input" type="email" id="settings-profile-email" placeholder="nome@azienda.it" autocomplete="username">
+      </div>
+      <div class="field-group">
+        <label>Nuova password (opzionale)</label>
+        <input class="f-input" type="password" id="settings-profile-password" placeholder="Minimo 6 caratteri" autocomplete="new-password">
+      </div>
     </div>
-  </div>`:'';
+    <div style="display:flex;justify-content:flex-end;margin-top:8px">
+      <button class="tb-btn primary" onclick="updateProfileSettings()">Salva account</button>
+    </div>
+  </div>
 
-  const cloudSyncCard=demo?'':`<div class="settings-card">
-    <h4><svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>Sincronizzazione Cloud (Firebase)</h4>
-    <div class="toggle-row">
-      <label class="toggle-switch"><input type="checkbox" ${syncConfig.enabled?'checked':''} onchange="toggleCloudSync(this.checked)"><span class="toggle-track"></span></label>
-      <span class="toggle-label">Attiva sincronizzazione tra dispositivi</span>
-    </div>
-    <div class="sync-grid">
-      <div class="field-group"><label>API Key</label><input class="f-input" type="text" value="${escAttr(syncConfig.apiKey)}" placeholder="AIzaSy…" onchange="saveSyncField('apiKey',this.value)"></div>
-      <div class="field-group"><label>Database URL</label><input class="f-input" type="text" value="${escAttr(syncConfig.databaseURL)}" placeholder="https://…firebaseio.com" onchange="saveSyncField('databaseURL',this.value)"></div>
-      <div class="field-group"><label>Nome stanza</label><input class="f-input" type="text" value="${escAttr(syncConfig.roomName)}" placeholder="la-mia-azienda" onchange="saveSyncField('roomName',this.value)"></div>
-    </div>
-    <div id="sync-status"></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-      <button class="tb-btn" onclick="applySyncConfig()">Applica</button>
-      <button class="tb-btn" id="btn-pull" onclick="pullFromCloud()" ${!syncState.connected?'disabled':''}>Scarica dal cloud</button>
-      <button class="tb-btn" id="btn-push" onclick="forcePushToCloud()" ${!syncState.connected?'disabled':''}>Carica sul cloud</button>
-    </div>
-    <p class="field-hint" style="margin-top:8px">Crea un progetto gratuito su console.firebase.google.com → Realtime Database. Tutti i dispositivi con la stessa stanza vedranno gli stessi dati.</p>
-  </div>`;
-
-  const adminCard=(!demo&&isAdmin())?`<div class="settings-card">
-    <h4><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>Gestione utenti</h4>
-    <p style="font-size:13px;color:var(--text2);margin-bottom:10px">Approva o rifiuta le richieste di registrazione dei collaboratori.</p>
-    <button class="tb-btn primary" onclick="loadAdminUsers()" style="margin-bottom:12px">Aggiorna lista utenti</button>
-    <div id="admin-users-list"><div style="font-size:13px;color:var(--text3)">Clicca "Aggiorna lista utenti" per vedere le richieste.</div></div>
-  </div>`:'';
-
-  return`${demoInfoCard}<div class="settings-card">
+  <div class="settings-card">
     <h4><svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>Metodo invio email</h4>
     <div class="send-method">
       <label class="method-option${s.sendMethod==='mailto'?' active':''}">
@@ -380,7 +379,20 @@ function renderSettingsPage(){
     </div>`:'<p style="font-size:13px;color:var(--text2)">Quando attivato, invia email automaticamente ai giorni selezionati prima della scadenza.</p>'}
   </div>
 
-  ${cloudSyncCard}
+  <div class="settings-card">
+    <h4><svg viewBox="0 0 24 24"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>Abbonamento</h4>
+    ${renderBillingSettingsCard()}
+  </div>
+
+  <div class="settings-card">
+    <h4><svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>Sincronizzazione Supabase</h4>
+    <p style="font-size:13px;color:var(--text2);margin:8px 0">I contratti sono salvati automaticamente su Supabase dopo ogni modifica. Usa i pulsanti per forzare sync o ricaricare dal cloud.</p>
+    <div id="sync-status"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+      <button class="tb-btn" onclick="pullFromCloud()">Ricarica da cloud</button>
+      <button class="tb-btn requires-write" onclick="forcePushToCloud()">Sincronizza ora</button>
+    </div>
+  </div>
 
   <div class="settings-card">
     <h4><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><rect x="4" y="17" width="16" height="4" rx="1"/></svg>Backup e ripristino (JSON)</h4>
@@ -402,7 +414,12 @@ function renderSettingsPage(){
     <button class="tb-btn" style="margin-top:10px" onclick="clearEmailLog()">Cancella log</button>`}
   </div>
 
-  ${adminCard}`;
+  ${isAdmin() ? `<div class="settings-card">
+    <h4><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>Gestione utenti</h4>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:10px">Approva o rifiuta le richieste di registrazione dei collaboratori.</p>
+    <button class="tb-btn primary" onclick="loadAdminUsers()" style="margin-bottom:12px">Aggiorna lista utenti</button>
+    <div id="admin-users-list"><div style="font-size:13px;color:var(--text3)">Clicca "Aggiorna lista utenti" per vedere le richieste.</div></div>
+  </div>` : ''}`;
 }
 
 // ═══════════════════════════════════════
@@ -416,10 +433,12 @@ function hideModal(){document.getElementById('modal-layer').innerHTML=''}
 
 // Add / Edit contract
 window.openAddModal=function(){
+  if (!requireWriteAccess('aggiungere contratti')) return;
   showModal(renderContractModal(null,null));
   setTimeout(attachModalListeners,10);
 }
 window.openAddContractModal=function(name){
+  if (!requireWriteAccess('aggiungere contratti')) return;
   const existing=state.companies.find(c=>c.name===name);
   const base={name,adminEmail:existing?.adminEmail||'',companyEmail:existing?.companyEmail||''};
   showModal(renderContractModal(null,base));
@@ -642,6 +661,10 @@ function renderContractCard(c){
     const progressLabel = d<0 ? 'Contratto scaduto' : d<=ALERT_DAYS ? 'Intervento prioritario' : 'Monitoraggio regolare';
     const cStatus=c.status||'da_gestire';
     const sLbl=cStatus==='gestita'?'Gestita':cStatus==='terminato'?'Terminato':'Da gestire';
+    if(typeof normalizeContractLegal==='function') normalizeContractLegal(c);
+    const pendingCompliance=(c.complianceTasks||[]).filter(t=>t.status!=='done').length;
+    const compR=typeof analyzeContractCompliance==='function'?analyzeContractCompliance(c):null;
+    const disdettaDl=typeof getDisdettaDaysLeft==='function'?getDisdettaDaysLeft(c):null;
     return `<div class="contract-card ${urg} status-${cStatus}" data-id="${escAttr(c.id)}">
       <div class="card-main">
         <div class="card-top">
@@ -657,6 +680,10 @@ function renderContractCard(c){
               <div class="status-badge s-${cStatus}">${sLbl}</div>
               ${c.indeterminate?`<div class="badge badge-gray">T.I.</div>`:''}
               ${c.cessato?`<div class="badge badge-gray">Cessato</div>`:''}
+              ${pendingCompliance?`<div class="badge badge-red" title="Adempimenti pendenti">${pendingCompliance} UNILAV</div>`:''}
+              ${compR&&compR.stato==='ERRORE'?`<div class="badge badge-red">Non conforme</div>`:''}
+              ${compR&&compR.stato==='ATTENZIONE'?`<div class="badge badge-amber">Verifica legale</div>`:''}
+              ${disdettaDl!==null&&disdettaDl<=7&&disdettaDl>=-3?`<div class="badge badge-amber">Disdetta ${disdettaDl}gg</div>`:''}
               ${c.inProgress?`<div class="badge badge-purple">In lavorazione</div>`:''}
               ${(c.workNotes && c.workNotes.length)?`<div class="badge badge-blue" title="Note di lavorazione: clicca per visualizzare" onclick="viewWorkNotes(${escAttr(c.id)})">${c.workNotes.length} note</div>`:''}
             </div>
@@ -675,15 +702,17 @@ function renderContractCard(c){
         ${Array.isArray(c.cantieri)&&c.cantieri.length?`<div class="cantieri-inline"><div class="cantieri-label">Cantieri</div>`+c.cantieri.map(rawCt=>{const ct=normalizeCantiere(rawCt);const endDate=getCantiereEndDate(ct);return `<div class="cantiere-row"><div class="cantiere-nome">${esc(ct.nome)}</div><div class="cantiere-scad ${daysLeft(endDate)<=0?'':'ok'}">${formatDate(endDate)}</div></div>`}).join('')+`</div>`:''}
       </div>
         <div class="card-actions">
-        <div class="status-selector"><span class="status-selector-label">Stato:</span><button class="status-btn s-da_gestire${cStatus==='da_gestire'?' active':''}" onclick="setContractStatus(${escAttr(c.id)},'da_gestire')">Da gestire</button><button class="status-btn s-gestita${cStatus==='gestita'?' active':''}" onclick="setContractStatus(${escAttr(c.id)},'gestita')">Gestita</button><button class="status-btn s-terminato${cStatus==='terminato'?' active':''}" onclick="setContractStatus(${escAttr(c.id)},'terminato')">Terminato</button></div>
+        ${canManageData()?`<div class="status-selector"><span class="status-selector-label">Stato:</span><button class="status-btn s-da_gestire${cStatus==='da_gestire'?' active':''}" onclick="setContractStatus(${escAttr(c.id)},'da_gestire')">Da gestire</button><button class="status-btn s-gestita${cStatus==='gestita'?' active':''}" onclick="setContractStatus(${escAttr(c.id)},'gestita')">Gestita</button><button class="status-btn s-terminato${cStatus==='terminato'?' active':''}" onclick="setContractStatus(${escAttr(c.id)},'terminato')">Terminato</button></div>
         <button class="act-btn" onclick="openEditModal(${escAttr(c.id)})">Modifica</button>
         <button class="act-btn" onclick="openAddCantiere(${escAttr(c.id)})">+ Cantiere</button>
-        ${c.renewable?`<button class="act-btn quick-renew" onclick="openQuickRenew(${escAttr(c.id)})">Proroga</button>`:''}
+        ${c.renewable?`<button class="act-btn quick-renew" onclick="openQuickRenew(${escAttr(c.id)})">Proroga</button><button class="act-btn" onclick="openRenewModal(${escAttr(c.id)})">Rinnovo</button>`:''}
+        <button class="act-btn" onclick="exportDossierProroga(${escAttr(c.id)})">Dossier PDF</button>
         <button class="act-btn" onclick="openWorkNoteModal(${escAttr(c.id)})">Nota</button>
         ${!c.indeterminate?`<button class="act-btn" onclick="markIndeterminate(${escAttr(c.id)})">Converti T.I.</button>`:'<button class="act-btn" disabled>Convertito</button>'}
         ${!c.cessato?`<button class="act-btn" onclick="markCessato(${escAttr(c.id)})">Segna cessato</button>`:'<button class="act-btn" disabled>Cessato</button>'}
+        <button class="act-btn danger" onclick="confirmDelete(${escAttr(c.id)})">Elimina</button>`:`
+        <button class="act-btn" onclick="openWorkNoteModal(${escAttr(c.id)})">Note</button>`}
         <button class="act-btn primary" onclick="openEmailModal(${escAttr(c.id)})">Email</button>
-        <button class="act-btn danger" onclick="confirmDelete(${escAttr(c.id)})">Elimina</button>
       </div>
     </div>`;
   }catch(e){console.error('renderContractCard',e);return ''}
@@ -951,20 +980,26 @@ window.openQuickRenew=function(id){
 
 window.doQuickRenew=function(id){
   try{
-    const m=parseInt((document.getElementById('qr-months')||{}).value)||0;const idx=state.companies.findIndex(c=>c.id===id);if(idx<0)return;const c=state.companies[idx];
+    const m=parseInt((document.getElementById('qr-months')||{}).value)||0;
     if(m<=0){showToast('Inserire mesi validi');return}
-    if(!c.endDate||!c.startDate){showToast('Contratto senza data di scadenza o inizio');return}
-    const d=new Date(c.endDate);d.setMonth(d.getMonth()+m);const newEndStr=d.toISOString().split('T')[0];
-    const newDur=durationMonths(c.startDate,newEndStr);const newRenew=(c.renewCount||0)+1;
-    const r=verificaCausale(newDur,newRenew,c.renewType==='Con causale');
+    const c=state.companies.find(x=>x.id===id);
+    if(!c?.endDate||!c?.startDate){showToast('Contratto senza date');return}
+    const newEnd=addMonthsISO(c.endDate,m);
+    const r=typeof analyzeContractCompliance==='function'?analyzeContractCompliance(c,{projectedDurationMonths:durationMonths(c.startDate,newEnd),projectedRenewCount:(c.renewCount||0)+1}):verificaCausale(durationMonths(c.startDate,newEnd),(c.renewCount||0)+1,c.renewType==='Con causale');
     if(r.stato==='ERRORE'){showModal(`<div class="modal-bg" onclick="hideModal()"><div class="modal" onclick="event.stopPropagation()"><h3>Impossibile applicare proroga</h3><div style="margin-bottom:12px">${esc(r.msg)}</div><div class="modal-actions"><button class="m-btn" onclick="hideModal()">Chiudi</button></div></div></div>`);return}
     if(r.stato==='ATTENZIONE'){
       showModal(`<div class="modal-bg" onclick="hideModal()"><div class="modal" onclick="event.stopPropagation()"><h3>Attenzione nella proroga</h3><div style="margin-bottom:12px">${esc(r.msg)}</div><div class="modal-actions"><button class="m-btn" onclick="hideModal()">Annulla</button><button class="m-btn primary" onclick="doQuickRenewConfirm(${id},${m})">Procedi comunque</button></div></div></div>`);
       return;
     }
-    // OK — apply
-    state.companies[idx].endDate=newEndStr;state.companies[idx].renewCount=(state.companies[idx].renewCount||0)+1;saveData();hideModal();renderPage();renderSidebarCompanies();showToast('Proroga applicata');
+    const res=typeof applyContractExtension==='function'?applyContractExtension(id,{kind:'proroga',months:m}):null;
+    if(res&&!res.ok){showToast(res.error||'Errore proroga');return}
+    if(!res){const idx=state.companies.findIndex(c=>c.id===id);state.companies[idx].endDate=newEnd;state.companies[idx].renewCount=(state.companies[idx].renewCount||0)+1;saveData()}
+    hideModal();renderPage();renderSidebarCompanies();showToast('Proroga applicata — verifica UNILAV entro 5 gg');
   }catch(e){console.error('doQuickRenew',e);showToast('Errore durante la proroga')}
+}
+
+function addMonthsISO(dateStr,months){
+  const d=new Date(dateStr);d.setMonth(d.getMonth()+months);return d.toISOString().split('T')[0];
 }
 
 // Main page renderer
@@ -995,6 +1030,7 @@ function renderPage(){
     </div>
     <div><button class="tb-btn primary" onclick="openAddModal()">+ Nuovo contratto</button></div>
   </div>`;
+        html+=`<div class="legal-banner-wrap">${typeof renderLegalBannerHtml==='function'?renderLegalBannerHtml():''}</div>`;
         html+=`<div class="metrics-grid" style="margin-bottom:20px">
     <div class="metric-card"><div class="metric-label">Durata media</div><div class="metric-val">${avgDur}<span style="font-size:16px;font-weight:400"> mesi</span></div></div>
     <div class="metric-card"><div class="metric-label">Prorogabili</div><div class="metric-val c-blue">${renewableCnt}</div><div class="metric-delta">su ${state.companies.length} totali</div></div>
@@ -1033,6 +1069,9 @@ function renderPage(){
       case 'terminate':
         html=renderTerminatePage();
         break;
+      case 'compliance':
+        html=typeof renderCompliancePage==='function'?renderCompliancePage():'<div class="empty-state">Modulo compliance non disponibile</div>';
+        break;
       case 'analytics':
         html=renderAnalyticsPage();
         break;
@@ -1048,6 +1087,10 @@ function renderPage(){
     }
     el.innerHTML=html;
     if(state.page==='analytics') setTimeout(initCharts,50);
+    if(state.page==='settings') setTimeout(()=>{
+      if(typeof loadProfileSettings==='function') loadProfileSettings();
+      if(typeof updateSyncUI==='function') updateSyncUI();
+    },10);
   }catch(e){console.error('renderPage error',e);el.innerHTML='<div class="empty-state">Errore durante il rendering</div>'}
 }
 
@@ -1058,7 +1101,7 @@ function renderContractModal(c,base){
 
   let causaleInit='';
   if(c&&c.startDate&&c.endDate){
-    const r=verificaCausale(dm,c.renewCount||0,c.renewType==='Con causale');
+    const r=typeof analyzeContractCompliance==='function'?analyzeContractCompliance(c):verificaCausale(dm,c.renewCount||0,c.renewType==='Con causale');
     if(r.stato!=='OK'){
       const cls=r.stato==='ERRORE'?'err':'warn';
       causaleInit=`<div class="causale-inline ${cls}" id="causale-live">
@@ -1074,12 +1117,10 @@ function renderContractModal(c,base){
     <h3>${title}</h3>
     ${!isEdit&&!base?`<div class="form-row">
       <div class="form-field"><label>Nome azienda *</label><input class="f-input" id="f-name" type="text" value="${escAttr(v.name||'')}" placeholder="Acme S.r.l." style="width:100%"></div>
-      <div class="form-field"><label>Tipo contratto</label><input class="f-input" id="f-type" type="text" value="${escAttr(v.contractType||'')}" placeholder="Fornitura servizi" style="width:100%"></div>
-    </div>`:`<input id="f-name" type="hidden" value="${escAttr(v.name||'')}">
-    ${isEdit?`<div class="form-row single"><div class="form-field"><label>Tipo contratto</label><input class="f-input" id="f-type" type="text" value="${escAttr(v.contractType||'')}" placeholder="Fornitura servizi" style="width:100%"></div></div>`:''}`}
+    </div>`:`<input id="f-name" type="hidden" value="${escAttr(v.name||'')}">`}
+    ${typeof renderLegalFormFields==='function'?renderLegalFormFields(v):`<div class="form-row single"><div class="form-field"><label>Tipo contratto</label><input class="f-input" id="f-type" type="text" value="${escAttr(v.contractType||'')}" style="width:100%"></div></div>`}
     <div class="form-row">
-      <div class="form-field"><label>Nome dipendente</label><input class="f-input" id="f-emp" type="text" value="${escAttr(v.employeeName||'')}" placeholder="Mario Rossi" style="width:100%"></div>
-      ${(!isEdit&&base)?`<div class="form-field"><label>Tipo contratto</label><input class="f-input" id="f-type" type="text" value="${escAttr(v.contractType||'')}" placeholder="Fornitura servizi" style="width:100%"></div>`:''}
+      <div class="form-field"><label>Nome dipendente / controparte</label><input class="f-input" id="f-emp" type="text" value="${escAttr(v.employeeName||'')}" placeholder="Mario Rossi" style="width:100%"></div>
     </div>
     <div class="form-row">
       <div class="form-field"><label>Data inizio</label><input class="f-input" id="f-start" type="date" value="${v.startDate||''}" style="width:100%"></div>
@@ -1092,11 +1133,11 @@ function renderContractModal(c,base){
     <div class="form-row triple">
       <div class="form-field"><label>Prorogabile</label><select class="f-input" id="f-renew" style="width:100%"><option value="yes"${v.renewable!==false?' selected':''}>Sì</option><option value="no"${v.renewable===false?' selected':''}>No</option></select></div>
       <div class="form-field"><label>Durata proroga (mesi)</label><input class="f-input" id="f-months" type="number" min="1" value="${v.renewMonths||dm||12}" style="width:100%"></div>
-      <div class="form-field"><label>Tipo proroga</label><select class="f-input" id="f-rtype" style="width:100%"><option${v.renewType==='Con causale'?' selected':''}>Con causale</option><option${v.renewType==='Senza causale'?' selected':''}>Senza causale</option><option${v.renewType==='Automatica'?' selected':''}>Automatica</option></select></div>
+      <div class="form-field"><label>Preavviso disdetta (gg)</label><input class="f-input" id="f-notice" type="number" min="0" value="${v.renewNotice||30}" style="width:100%"></div>
     </div>
     <div class="form-row">
-      <div class="form-field"><label>Preavviso (giorni)</label><input class="f-input" id="f-notice" type="number" min="0" value="${v.renewNotice||30}" style="width:100%"></div>
       <div class="form-field"><label>Proroghe effettuate</label><input class="f-input" id="f-rcount" type="number" min="0" value="${v.renewCount||0}" style="width:100%"></div>
+      <div class="form-field"><label>Fine contratto precedente (rinnovo)</label><input class="f-input" id="f-last-end" type="date" value="${v.lastContractEndDate||''}" style="width:100%"></div>
     </div>
     ${causaleInit}
     <div class="form-row single"><div class="form-field"><label>Note</label><textarea class="f-input" id="f-notes" style="width:100%">${esc(v.notes||'')}</textarea></div></div>
@@ -1108,28 +1149,36 @@ function renderContractModal(c,base){
 }
 
 function attachModalListeners(){
-  ['f-start','f-end','f-rtype','f-rcount'].forEach(id=>{
+  ['f-start','f-end','f-rtype','f-rcount','f-legal-cat','f-causale-code','f-causale-text'].forEach(id=>{
     const el=document.getElementById(id);
     if(el)el.addEventListener('input',updateCausaleLive);
   });
   window.doQuickRenewConfirm=function(id,m){
     try{
-      const idx=state.companies.findIndex(c=>c.id===id);if(idx<0)return;const c=state.companies[idx];if(!c.endDate){showToast('Contratto senza data di scadenza');hideModal();return}
-      const d=new Date(c.endDate);d.setMonth(d.getMonth()+m);const newEndStr=d.toISOString().split('T')[0];
-      state.companies[idx].endDate=newEndStr;state.companies[idx].renewCount=(state.companies[idx].renewCount||0)+1;saveData();hideModal();renderPage();renderSidebarCompanies();showToast('Proroga applicata (procedi comunque)');
+      const res=typeof applyContractExtension==='function'?applyContractExtension(id,{kind:'proroga',months:m,force:true}):null;
+      if(res&&!res.ok){showToast(res.error||'Errore');return}
+      if(!res){
+        const idx=state.companies.findIndex(c=>c.id===id);if(idx<0)return;
+        const d=new Date(state.companies[idx].endDate);d.setMonth(d.getMonth()+m);
+        state.companies[idx].endDate=d.toISOString().split('T')[0];
+        state.companies[idx].renewCount=(state.companies[idx].renewCount||0)+1;
+        saveData();
+      }
+      hideModal();renderPage();renderSidebarCompanies();showToast('Proroga applicata (procedi comunque)');
     }catch(e){console.error('doQuickRenewConfirm',e);showToast('Errore')}
   }
   // Aggiorna messaggio causale quando si modificano campi nel modal
   function updateCausaleLive(){
     const s = (document.getElementById('f-start')||{}).value;
     const e = (document.getElementById('f-end')||{}).value;
-    const rt = (document.getElementById('f-rtype')||{}).value || '';
+    const rt = (document.getElementById('f-rtype')||{}).value || (document.getElementById('f-causale-code')||{}).value || '';
     const rc = parseInt((document.getElementById('f-rcount')||{}).value) || 0;
     const fb = document.getElementById('causale-live');
     if(!fb) return;
     if(!s||!e){fb.innerHTML='';return}
     const dm = durationMonths(s,e);
-    const r = verificaCausale(dm,rc,rt==='Con causale');
+    const stub = { legalCategory:(document.getElementById('f-legal-cat')||{}).value||'td', renewCount:rc, renewType:rt==='Con causale'||rt==='parti_top'||rt==='ccnl'||rt==='sostituzione'?'Con causale':'Senza causale', causaleCode:rt||'n_a', causaleText:(document.getElementById('f-causale-text')||{}).value||'', startDate:s, endDate:e };
+    const r = typeof analyzeContractCompliance==='function'?analyzeContractCompliance(stub):verificaCausale(dm,rc,stub.renewType==='Con causale');
     if(r.stato==='OK'){fb.innerHTML='';return}
     const cls = r.stato==='ERRORE' ? 'err' : 'warn';
     const icon = r.stato==='ERRORE'
@@ -1163,39 +1212,61 @@ function attachModalListeners(){
   updateCausaleLive();
 }
 
+window.setContractStatus=function(id, status){
+  if (!requireWriteAccess('modificare lo stato')) return;
+  const idx = state.companies.findIndex(c => String(c.id) === String(id));
+  if (idx < 0) return;
+  state.companies[idx].status = status;
+  saveData();
+  renderPage();
+  renderSidebarCompanies();
+  showToast('Stato aggiornato');
+};
+
 window.saveContract=function(editId){
+  if (!requireWriteAccess('salvare contratti')) return;
+  const isNew = editId === null || editId === undefined;
+  if (isNew && !canAddContract(1)) {
+    showToast('Limite contratti del piano raggiunto — aggiorna l\'abbonamento');
+    return;
+  }
   const name=(document.getElementById('f-name')||{}).value?.trim();
   const emp=(document.getElementById('f-emp')||{}).value?.trim();
-  const type=(document.getElementById('f-type')||{}).value?.trim()||'Non specificato';
+  const type=(document.getElementById('f-type')||{}).value?.trim();
+  const legalExtra=typeof readLegalFieldsFromForm==='function'?readLegalFieldsFromForm(editId!==null&&editId!==undefined?state.companies.find(c=>c.id===editId):null):{};
+  const resolvedType=legalExtra.contractType||type||'Non specificato';
   const start=(document.getElementById('f-start')||{}).value;
   const end=(document.getElementById('f-end')||{}).value;
   const admin=(document.getElementById('f-admin')||{}).value?.trim();
   const company=(document.getElementById('f-company')||{}).value?.trim();
   const renewable=(document.getElementById('f-renew')||{}).value==='yes';
   const months=parseInt((document.getElementById('f-months')||{}).value)||12;
-  const rtype=(document.getElementById('f-rtype')||{}).value||'Senza causale';
+  const rtype=legalExtra.renewType||(document.getElementById('f-rtype')||{}).value||'Senza causale';
   const notice=parseInt((document.getElementById('f-notice')||{}).value)||30;
   const rcount=parseInt((document.getElementById('f-rcount')||{}).value)||0;
   const notes=(document.getElementById('f-notes')||{}).value?.trim();
+  const lastContractEndDate=(document.getElementById('f-last-end')||{}).value||'';
 
   if(!name||!end){showToast('Inserire nome azienda e data scadenza');return}
 
   if(start&&end){
-    const dm=durationMonths(start,end);
-    const r=verificaCausale(dm,rcount,rtype==='Con causale');
+    const stub={...legalExtra,startDate:start,endDate:end,renewCount:rcount,renewType:rtype,renewNotice:notice};
+    const r=typeof analyzeContractCompliance==='function'?analyzeContractCompliance(stub):verificaCausale(durationMonths(start,end),rcount,rtype==='Con causale');
     if(r.stato==='ERRORE'){showToast('⚠ '+r.msg);return}
     if(r.stato==='ATTENZIONE')showToast('⚠ Attenzione: '+r.msg);
   }
 
+  const payload={name,employeeName:emp,contractType:resolvedType,startDate:start,endDate:end,adminEmail:admin,companyEmail:company,renewable,renewMonths:months,renewType:rtype,renewNotice:notice,renewCount:rcount,notes,lastContractEndDate,...legalExtra};
+
   if(editId!==null&&editId!==undefined){
     const idx=state.companies.findIndex(c=>c.id===editId);
     if(idx>=0){
-      state.companies[idx]={...state.companies[idx],name,employeeName:emp,contractType:type,startDate:start,endDate:end,adminEmail:admin,companyEmail:company,renewable,renewMonths:months,renewType:rtype,renewNotice:notice,renewCount:rcount,notes};
+      state.companies[idx]={...state.companies[idx],...payload};
     }
     showToast('Contratto aggiornato');
   }else{
     const newId=Math.max(0,...state.companies.map(c=>c.id||0))+1;
-    state.companies.push({id:newId,name,employeeName:emp,contractType:type,startDate:start,endDate:end,adminEmail:admin,companyEmail:company,renewable,renewMonths:months,renewType:rtype,renewNotice:notice,renewCount:rcount,notes,cantieri:[]});
+    state.companies.push({id:newId,...payload,cantieri:[],complianceTasks:[],contractHistory:[]});
     showToast('Contratto aggiunto');
   }
   hideModal();saveData();renderPage();renderSidebarCompanies();
@@ -1203,6 +1274,7 @@ window.saveContract=function(editId){
 
 // Delete
 window.confirmDelete=function(id){
+  if (!requireWriteAccess('eliminare')) return;
   const c=state.companies.find(x=>x.id===id);
   if(!c)return;
   showModal(`<div class="modal-bg" onclick="hideModal()"><div class="modal" onclick="event.stopPropagation()" style="max-width:400px">

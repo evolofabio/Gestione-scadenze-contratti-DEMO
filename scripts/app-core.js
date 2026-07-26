@@ -28,10 +28,10 @@ function escJsArg(s){return JSON.stringify(String(s??'')).replace(/&/g,'&amp;').
 function mkDate(d){const x=new Date();x.setDate(x.getDate()+d);return x.toISOString().split('T')[0]}
 
 function defaultData(){return[
-  {id:1,name:'Acme S.r.l.',employeeName:'Marco Bianchi',contractType:'Fornitura servizi IT',startDate:'2023-04-15',endDate:mkDate(4),renewable:true,renewMonths:12,renewType:'Senza causale',renewNotice:30,renewCount:2,adminEmail:'admin@example.com',companyEmail:'contratti@acme.it',notes:'Rinnovo automatico salvo disdetta. Verificare aggiornamento prezzi.',cantieri:[{nome:'Cantiere Milano',scadenza:mkDate(10),note:'Verifica sicurezza'},{nome:'Cantiere Roma',scadenza:mkDate(30),note:''}]},
-  {id:4,name:'Acme S.r.l.',employeeName:'Laura Verdi',contractType:'Supporto tecnico',startDate:'2024-01-10',endDate:mkDate(45),renewable:true,renewMonths:6,renewType:'Automatica',renewNotice:15,renewCount:0,adminEmail:'admin@example.com',companyEmail:'contratti@acme.it',notes:'Contratto supporto tecnico on-site.',cantieri:[]},
-  {id:2,name:'Beta Solutions S.p.A.',employeeName:'Giuseppe Neri',contractType:'Contratto di appalto',startDate:'2022-01-10',endDate:mkDate(18),renewable:true,renewMonths:6,renewType:'Con causale',renewNotice:60,renewCount:1,adminEmail:'admin@example.com',companyEmail:'legal@beta.it',notes:'Proroga subordinata a valutazione performance.',cantieri:[{nome:'Cantiere Napoli',scadenza:mkDate(60),note:'Controllo documenti'}]},
-  {id:3,name:'Gamma Trade S.r.l.',employeeName:'Anna Russo',contractType:'Accordo commerciale',startDate:'2024-06-01',endDate:mkDate(90),renewable:false,renewMonths:0,renewType:'',renewNotice:0,renewCount:0,adminEmail:'admin@example.com',companyEmail:'info@gamma.it',notes:'Contratto a termine fisso, non prorogabile.',cantieri:[]}
+  {id:1,name:'Acme S.r.l.',employeeName:'Marco Bianchi',contractType:'Tempo determinato',legalCategory:'td',startDate:'2023-04-15',endDate:mkDate(4),renewable:true,renewMonths:12,renewType:'Senza causale',renewNotice:30,renewCount:2,causaleCode:'n_a',adminEmail:'admin@example.com',companyEmail:'contratti@acme.it',notes:'Rinnovo automatico salvo disdetta. Verificare aggiornamento prezzi.',complianceTasks:[{id:'demo_ct_1',type:'unilav_proroga',eventDate:mkDate(-2),dueDate:mkDate(3),status:'pending',note:'Proroga Marco Bianchi — demo',doneAt:null}],contractHistory:[],cantieri:[{nome:'Cantiere Milano',scadenza:mkDate(10),note:'Verifica sicurezza'},{nome:'Cantiere Roma',scadenza:mkDate(30),note:''}]},
+  {id:4,name:'Acme S.r.l.',employeeName:'Laura Verdi',contractType:'Tempo determinato',legalCategory:'td',startDate:'2024-01-10',endDate:mkDate(45),renewable:true,renewMonths:6,renewType:'Senza causale',renewNotice:15,renewCount:0,causaleCode:'n_a',adminEmail:'admin@example.com',companyEmail:'contratti@acme.it',notes:'Contratto supporto tecnico on-site.',complianceTasks:[],contractHistory:[],cantieri:[]},
+  {id:2,name:'Beta Solutions S.p.A.',employeeName:'Giuseppe Neri',contractType:'Appalto privato',legalCategory:'appalto_privato',startDate:'2022-01-10',endDate:mkDate(18),renewable:true,renewMonths:6,renewType:'Con causale',renewNotice:60,renewCount:1,causaleCode:'parti_top',causaleText:'Esigenze organizzative progetto Napoli',adminEmail:'admin@example.com',companyEmail:'legal@beta.it',notes:'Proroga subordinata a valutazione performance.',complianceTasks:[],contractHistory:[],cantieri:[{nome:'Cantiere Napoli',scadenza:mkDate(60),note:'Controllo documenti'}]},
+  {id:3,name:'Gamma Trade S.r.l.',employeeName:'Anna Russo',contractType:'Fornitura B2B',legalCategory:'fornitura_b2b',startDate:'2024-06-01',endDate:mkDate(90),renewable:false,renewMonths:0,renewType:'',renewNotice:0,renewCount:0,causaleCode:'n_a',adminEmail:'admin@example.com',companyEmail:'info@gamma.it',notes:'Contratto a termine fisso, non prorogabile.',complianceTasks:[],contractHistory:[],cantieri:[]}
 ]} 
 
 function defaultSettings(){return{sendMethod:'mailto',emailjs:{serviceId:'',templateId:'',publicKey:''},autoSend:{enabled:false,daysBeforeExpiry:[30,15,7,3,1],checkIntervalMinutes:60}}}
@@ -191,6 +191,25 @@ function isDemoMode() {
   return !!(window.ES_DEMO && window.ES_DEMO.mode);
 }
 window.isDemoMode = isDemoMode;
+
+// Demo: permessi sempre attivi (app-ui SaaS usa RBAC)
+function setCurrentUserRole(){}
+function getCurrentUserRole(){ return 'owner'; }
+function isAdmin(){ return true; }
+function canManageData(){ return true; }
+function isViewer(){ return false; }
+function isWriteBlockedByBilling(){ return false; }
+function canAddContract(){ return true; }
+function requireWriteAccess(){ return true; }
+function applyWriteRoleUI(){}
+window.setCurrentUserRole = setCurrentUserRole;
+window.getCurrentUserRole = getCurrentUserRole;
+window.isAdmin = isAdmin;
+window.canManageData = canManageData;
+window.isViewer = isViewer;
+window.requireWriteAccess = requireWriteAccess;
+window.canAddContract = canAddContract;
+window.applyWriteRoleUI = applyWriteRoleUI;
 
 function resetDemoData() {
   state.companies = defaultData();
@@ -355,11 +374,11 @@ function getUrgentNotifications(){
 }
 
 function updateNav(){
-  ['dashboard','calendar','cantieri','indeterminati','cessati','gestite','terminate','analytics','settings'].forEach(p=>{
+  ['dashboard','calendar','cantieri','indeterminati','cessati','gestite','terminate','compliance','analytics','settings'].forEach(p=>{
     const el=document.getElementById('nav-'+p);
     if(el)el.className=`nav-item${state.page===p?' active':''}`;
   });
-  const titles={dashboard:'Dashboard',calendar:'Calendario',cantieri:'Cantieri',indeterminati:'Indeterminati',cessati:'Cessati',gestite:'Gestite',terminate:'Terminate',analytics:'Analytics',settings:'Impostazioni',company:state.activeCompany||'Azienda'};
+  const titles={dashboard:'Dashboard',calendar:'Calendario',cantieri:'Cantieri',indeterminati:'Indeterminati',cessati:'Cessati',gestite:'Gestite',terminate:'Terminate',compliance:'Compliance',analytics:'Analytics',settings:'Impostazioni',company:state.activeCompany||'Azienda'};
   const el=document.getElementById('topbar-title');
   if(el)el.textContent=titles[state.page]||'';
   const sw=document.getElementById('topbar-search-wrap');
@@ -378,10 +397,18 @@ function updateNav(){
       else{cb.style.display='none';cb.textContent='0'}
     }
     const urgentData=getUrgentNotifications();
+    const legalData=typeof getLegalNotifications==='function'?getLegalNotifications():{overdue:[],pending:[]};
     const nb=document.getElementById('notif-badge');
     if(nb){
-      if(urgentData.total>0){nb.style.display='';nb.textContent=compactBadgeCount(urgentData.total);nb.title=`${urgentData.total} notifiche`}
+      const totalNotif=urgentData.total+(legalData.overdue?.length||0);
+      if(totalNotif>0){nb.style.display='';nb.textContent=compactBadgeCount(totalNotif);nb.title=`${totalNotif} notifiche`}
       else{nb.style.display='none';nb.textContent='0'}
+    }
+    const cb2=document.getElementById('compliance-badge');
+    if(cb2){
+      const n=(legalData.pending||[]).length;
+      if(n>0){cb2.style.display='';cb2.textContent=compactBadgeCount(n)}
+      else{cb2.style.display='none';cb2.textContent='0'}
     }
   }catch(e){console.error('updateNav badges',e)}
 }

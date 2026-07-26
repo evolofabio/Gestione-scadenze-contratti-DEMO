@@ -14,10 +14,13 @@ window.openEmailModal=function(id){
 }
 function generateEmailBody(c,days){
   let b=`Gentile amministratore,\n\nquesto è un avviso: il contratto con ${c.name}${c.employeeName?' — dipendente: '+c.employeeName:''} (${c.contractType}) scadrà il ${formatDate(c.endDate)}, tra ${days} giorni.\n\n`;
-  if(c.renewable)b+=`Il contratto è prorogabile per ${c.renewMonths} mesi — modalità: ${c.renewType}. Preavviso richiesto: ${c.renewNotice} giorni.\nProroghe effettuate: ${c.renewCount||0}/4.\n\n`;
-  else b+=`Il contratto non è prorogabile.\n\n`;
+  if(c.renewable)b+=`Il contratto è prorogabile per ${c.renewMonths} mesi — modalità: ${c.renewType}. Preavviso richiesto: ${c.renewNotice} giorni.\nProroghe effettuate: ${c.renewCount||0}/4.\n`;
+  if(typeof getDisdettaDaysLeft==='function'){const ddl=getDisdettaDaysLeft(c);if(ddl!==null)b+=`Giorni alla scadenza preavviso disdetta: ${ddl}.\n`;}
+  if(typeof analyzeContractCompliance==='function'){const r=analyzeContractCompliance(c);if(r&&r.stato!=='OK')b+=`\nVerifica legale: ${r.stato} — ${r.msg}\n`;}
+  b+=`\n`;
+  if(!c.renewable)b+=`Il contratto non è prorogabile.\n\n`;
   if(c.notes)b+=`Note: ${c.notes}\n\n`;
-  b+=`Si prega di procedere con le formalità necessarie.\n\n— Sistema gestione contratti`;
+  b+=`Si prega di procedere con le formalità necessarie (incluso UNILAV ove previsto entro 5 gg).\n\n— ProrogaPro`;
   return b;
 }
 function renderEmailModal(c){
@@ -81,13 +84,25 @@ async function runAutoCheck(){
   if(!emailSettings.autoSend.enabled)return;
   for(const c of state.companies){
     const d=daysLeft(c.endDate);if(d<0)continue;
-    for(const t of(emailSettings.autoSend.daysBeforeExpiry||[])){
+    const thresholds=typeof getAlertDaysForContract==='function'?getAlertDaysForContract(c):(emailSettings.autoSend.daysBeforeExpiry||[]);
+    for(const t of thresholds){
       if(d<=t){
         const key=`${c.id}_${t}_${new Date().toISOString().split('T')[0]}`;
         if(sentTracker[key])continue;
-        const r=await sendEmailReal(`${c.adminEmail}; ${c.companyEmail}`,`[AUTO] ${c.name} scade tra ${d}gg`,generateEmailBody(c,d),c.name);
+        const subj=t===(parseInt(c.renewNotice)||0)?`[DISDETTA] Preavviso ${c.name} (${d}gg)`:`[AUTO] ${c.name} scade tra ${d}gg`;
+        const r=await sendEmailReal(`${c.adminEmail}; ${c.companyEmail}`,subj,generateEmailBody(c,d),c.name);
         if(r.ok){sentTracker[key]=new Date().toISOString();save(SK.sent,sentTracker)}
         break;
+      }
+    }
+    if(typeof getDisdettaDaysLeft==='function'){
+      const ddl=getDisdettaDaysLeft(c);
+      if(ddl!==null&&ddl<=0&&ddl>=-1&&c.renewable!==false){
+        const dk=`${c.id}_disdetta_${new Date().toISOString().split('T')[0]}`;
+        if(!sentTracker[dk]){
+          const r=await sendEmailReal(`${c.adminEmail}; ${c.companyEmail}`,`[DISDETTA] Termine preavviso — ${c.name}`,generateEmailBody(c,d)+'\n\n⚠ Finestra preavviso/disdetta raggiunta.',c.name);
+          if(r.ok){sentTracker[dk]=new Date().toISOString();save(SK.sent,sentTracker)}
+        }
       }
     }
   }
@@ -102,9 +117,9 @@ function getHeaders(){return['Nome Azienda','Dipendente','Tipo Contratto','Data 
 function getRows(companies){
   return(companies||state.companies).map(c=>{const d=daysLeft(c.endDate);const s=d<0?'Scaduto':d<=ALERT_DAYS?'Urgente':d<=30?'In scadenza':'Regolare';return[c.name,c.employeeName||'',c.contractType,formatDate(c.startDate),formatDate(c.endDate),d,s,c.renewable?'Sì':'No',c.renewMonths||'',c.renewType||'',c.renewNotice||'',c.renewCount||0,c.adminEmail||'',c.companyEmail||'',c.notes||'']});
 }
-window.exportCSV=()=>{const h=getHeaders();const r=getRows();const csv=[h,...r].map(row=>row.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n');const b=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=`evolution_system_gestione_scadenze_${new Date().toISOString().split('T')[0]}.csv`;a.click();URL.revokeObjectURL(u);showToast('CSV esportato')}
-window.exportExcel=()=>{const wb=XLSX.utils.book_new();const ws=XLSX.utils.aoa_to_sheet([getHeaders(),...getRows()]);ws['!cols']=[22,20,22,12,12,8,12,10,10,14,10,8,24,24,40].map(w=>({wch:w}));XLSX.utils.book_append_sheet(wb,ws,'Contratti');XLSX.writeFile(wb,`evolution_system_gestione_scadenze_${new Date().toISOString().split('T')[0]}.xlsx`);showToast('Excel esportato')}
-window.exportExcelCompany=name=>{const wb=XLSX.utils.book_new();const ws=XLSX.utils.aoa_to_sheet([getHeaders(),...getRows(state.companies.filter(c=>c.name===name))]);XLSX.utils.book_append_sheet(wb,ws,name.substring(0,30));XLSX.writeFile(wb,`evolution_system_gestione_scadenze_${name.replace(/\s+/g,'_')}_${new Date().toISOString().split('T')[0]}.xlsx`);showToast('Excel azienda esportato')}
+window.exportCSV=()=>{const h=getHeaders();const r=getRows();const csv=[h,...r].map(row=>row.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n');const b=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=`prorogapro_export_${new Date().toISOString().split('T')[0]}.csv`;a.click();URL.revokeObjectURL(u);showToast('CSV esportato')}
+window.exportExcel=()=>{const wb=XLSX.utils.book_new();const ws=XLSX.utils.aoa_to_sheet([getHeaders(),...getRows()]);ws['!cols']=[22,20,22,12,12,8,12,10,10,14,10,8,24,24,40].map(w=>({wch:w}));XLSX.utils.book_append_sheet(wb,ws,'Contratti');XLSX.writeFile(wb,`prorogapro_export_${new Date().toISOString().split('T')[0]}.xlsx`);showToast('Excel esportato')}
+window.exportExcelCompany=name=>{const wb=XLSX.utils.book_new();const ws=XLSX.utils.aoa_to_sheet([getHeaders(),...getRows(state.companies.filter(c=>c.name===name))]);XLSX.utils.book_append_sheet(wb,ws,name.substring(0,30));XLSX.writeFile(wb,`prorogapro_export_${name.replace(/\s+/g,'_')}_${new Date().toISOString().split('T')[0]}.xlsx`);showToast('Excel azienda esportato')}
 window.exportPDFCompany=name=>{
   const list=state.companies.filter(c=>c.name===name);
   if(!list.length){showToast('Nessun contratto per questa azienda');return}
@@ -117,14 +132,14 @@ window.exportPDFCompany=name=>{
     body:list.map(c=>{const d=daysLeft(c.endDate);return[c.name,c.employeeName||'—',c.contractType||'',formatDate(c.startDate),formatDate(c.endDate),String(d),d<0?'Scaduto':d<=ALERT_DAYS?'Urgente':d<=30?'In scadenza':'OK',c.renewable?'Sì':'No']}),
     startY:25,theme:'grid',styles:{fontSize:8,cellPadding:2},headStyles:{fillColor:[42,91,215],textColor:255,fontStyle:'bold'},alternateRowStyles:{fillColor:[245,244,240]}
   });
-  doc.save(`evolution_system_gestione_scadenze_${safeName}_${new Date().toISOString().split('T')[0]}.pdf`);showToast('PDF azienda esportato');
+  doc.save(`prorogapro_export_${safeName}_${new Date().toISOString().split('T')[0]}.pdf`);showToast('PDF azienda esportato');
 }
 window.exportPDF=()=>{
   const {jsPDF}=window.jspdf;const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
   doc.setFontSize(14);doc.setFont(undefined,'bold');doc.text('ProrogaPro — Scadenze e proroghe contrattuali',14,14);
   doc.setFontSize(9);doc.setFont(undefined,'normal');doc.setTextColor(100);doc.text(`Esportato il ${new Date().toLocaleDateString('it-IT')} — ${state.companies.length} contratti`,14,20);doc.setTextColor(0);
   doc.autoTable({head:[['Azienda','Dipendente','Tipo Contratto','Inizio','Scadenza','Gg','Stato','Pror.']],body:state.companies.map(c=>{const d=daysLeft(c.endDate);return[c.name,c.employeeName||'—',c.contractType,formatDate(c.startDate),formatDate(c.endDate),String(d),d<0?'Scaduto':d<=ALERT_DAYS?'Urgente':d<=30?'In scadenza':'OK',c.renewable?'Sì':'No',c.renewMonths||'',c.renewType||'',c.renewNotice||'',c.renewCount||0,c.adminEmail||'',c.companyEmail||'',c.notes||'']}).slice(0,100),startY:25,theme:'grid',styles:{fontSize:8,cellPadding:2},headStyles:{fillColor:[42,91,215],textColor:255,fontStyle:'bold'},alternateRowStyles:{fillColor:[245,244,240]}});
-  doc.save(`evolution_system_gestione_scadenze_${new Date().toISOString().split('T')[0]}.pdf`);showToast('PDF esportato');
+  doc.save(`prorogapro_export_${new Date().toISOString().split('T')[0]}.pdf`);showToast('PDF esportato');
 }
 window.triggerImportExcel=()=>{
   const inp=document.createElement('input');inp.type='file';inp.accept='.xlsx,.xls,.csv';
@@ -145,7 +160,7 @@ let pendingBackupImport=null;
 window.exportBackupJSON=()=>{
   try{
     const payload={
-      format:'evolution-backup',
+      format:'prorogapro-backup',
       version:1,
       exportedAt:new Date().toISOString(),
       data:{
@@ -161,7 +176,7 @@ window.exportBackupJSON=()=>{
     const url=URL.createObjectURL(blob);
     const a=document.createElement('a');
     a.href=url;
-    a.download=`evolution_system_backup_${new Date().toISOString().split('T')[0]}.json`;
+    a.download=`prorogapro_backup_${new Date().toISOString().split('T')[0]}.json`;
     a.click();
     URL.revokeObjectURL(url);
     showToast('Backup JSON esportato');
@@ -301,55 +316,14 @@ function encRoom(n){return String(n).replace(/[.#$\[\]\/]/g,'_').substring(0,128
 function fbArrayFromVal(v){if(!v)return null;if(Array.isArray(v))return v;if(typeof v==='object'){const k=Object.keys(v);if(!k.length)return null;return k.map(i=>v[i]).filter(Boolean)}return null}
 
 function initSync(){
-  if(!syncConfig.enabled||!syncConfig.apiKey||!syncConfig.databaseURL||!syncConfig.roomName){disconnectSync();return}
-  try{
-    const ex=firebase.apps.find(a=>a.name==='syncApp');
-    if(ex)ex.delete().then(connectSync).catch(connectSync);
-    else connectSync();
-  }catch(e){syncState.connected=false;updateSyncUI()}
-}
-function connectSync(){
-  try{
-    const app=firebase.initializeApp({apiKey:syncConfig.apiKey,databaseURL:syncConfig.databaseURL},'syncApp');
-    syncState.db=app.database();
-    syncState.db.ref('.info/connected').on('value',s=>{syncState.connected=s.val()===true;updateSyncUI()});
-    const ref=syncState.db.ref('rooms/'+encRoom(syncConfig.roomName)+'/data');
-    if(syncState.listener)syncState.listener.off();
-    syncState.listener=ref;
-    ref.on('value',s=>{
-      if(syncState.skipNext){syncState.skipNext=false;return}
-      const rd=fbArrayFromVal(s.val());
-      if(rd&&JSON.stringify(rd)!==JSON.stringify(state.companies)){
-        state.companies=rd;save(SK.data,rd);syncState.lastSync=new Date().toISOString();renderPage();renderSidebarCompanies();
-      }updateSyncUI();
-    });
-  }catch(e){syncState.connected=false;updateSyncUI()}
+  syncState.connected = !!syncConfig.enabled;
+  syncState.lastSync = null;
+  updateSyncUI();
 }
 function syncToCloud(){
-  if(!syncState.db||!syncConfig.enabled||!syncConfig.roomName)return;
-  // Prima di sincronizzare, controlla se ci sono differenze rispetto al cloud
-  syncState.db.ref('rooms/'+encRoom(syncConfig.roomName)+'/data').once('value').then(snap=>{
-    const cloudData = fbArrayFromVal(snap.val());
-    if(cloudData && JSON.stringify(cloudData)!==JSON.stringify(state.companies)){
-      // Merge intelligente: unisce dati locali e cloud, evitando duplicati
-      const merged = mergeCompanies(cloudData, state.companies);
-      if(JSON.stringify(merged)!==JSON.stringify(state.companies)){
-        // Avvisa l'utente del conflitto
-        showToast('⚠️ Dati cloud diversi: unione automatica effettuata.');
-        state.companies = merged;
-        save(SK.data, merged);
-        renderPage();
-        renderSidebarCompanies();
-      }
-    }
-    // Procedi con la sincronizzazione
-    syncState.skipNext=true;
-    syncState.db.ref('rooms/'+encRoom(syncConfig.roomName)+'/data').set(JSON.parse(JSON.stringify(state.companies))).then(()=>{syncState.lastSync=new Date().toISOString();updateSyncUI()}).catch(()=>{syncState.skipNext=false});
-  }).catch(()=>{
-    // In caso di errore, fallback sync classico
-    syncState.skipNext=true;
-    syncState.db.ref('rooms/'+encRoom(syncConfig.roomName)+'/data').set(JSON.parse(JSON.stringify(state.companies))).then(()=>{syncState.lastSync=new Date().toISOString();updateSyncUI()}).catch(()=>{syncState.skipNext=false});
-  });
+  if(!syncConfig.enabled)return;
+  syncState.lastSync = new Date().toISOString();
+  updateSyncUI();
 }
 
 // Merge intelligente tra dati cloud e locali
@@ -371,11 +345,7 @@ function mergeCompanies(cloud, local){
 }
 // Gestione della sincronizzazione: metodi utili mancanti
 function disconnectSync(){
-  try{
-    if(syncState.listener){ try{ syncState.listener.off(); }catch(e){} syncState.listener=null; }
-    if(syncState.db){ try{ if(typeof syncState.db.goOffline==='function') syncState.db.goOffline(); }catch(e){} syncState.db=null; }
-    if(typeof firebase!=='undefined' && firebase.apps){ const ex = firebase.apps.find(a=>a.name==='syncApp'); if(ex) try{ ex.delete(); }catch(e){} }
-  }catch(e){}
+  try{}catch(e){}
   syncState.connected=false; syncState.lastSync=null; syncState.skipNext=false; updateSyncUI();
 }
 
@@ -395,36 +365,39 @@ function applySyncConfig(){
 }
 
 function pullFromCloud(){
-  if(!syncState.db || !syncState.connected){ showToast('Non connesso al cloud'); return; }
-  syncState.db.ref('rooms/'+encRoom(syncConfig.roomName)+'/data').once('value').then(snap=>{
-    const cloudData = fbArrayFromVal(snap.val());
-    if(!cloudData){ showToast('Nessun dato nel cloud'); return; }
-    const merged = mergeCompanies(cloudData, state.companies);
-    if(JSON.stringify(merged)!==JSON.stringify(state.companies)){
-      state.companies = merged; save(SK.data, merged); renderPage(); renderSidebarCompanies(); showToast('Dati importati dal cloud');
-    } else showToast('Dati cloud identici a quelli locali');
-  }).catch(e=>{ showToast('Errore download: '+(e.message||e)); });
+  if (typeof window.initSupabaseSync === 'function') {
+    window.initSupabaseSync().then(() => showToast('Dati ricaricati da Supabase'));
+  } else {
+    showToast('Sync Supabase non disponibile');
+  }
 }
 
 function forcePushToCloud(){
-  if(!syncState.db || !syncState.connected){ showToast('Non connesso al cloud'); return; }
-  syncToCloud();
-  showToast('Invio dati al cloud...');
+  if (!requireWriteAccess('sincronizzare')) return;
+  if (typeof window.forceSyncToSupabase === 'function') {
+    window.forceSyncToSupabase().then(() => showToast('Sincronizzazione completata'));
+  } else {
+    showToast('Sync Supabase non disponibile');
+  }
 }
 
 function updateSyncUI(){
   const el = document.getElementById('sync-status');
   if(!el) return;
-  let html = '';
-  if(!syncConfig.enabled) html = '<div style="font-size:13px;color:var(--text3)">Sincronizzazione disattivata</div>';
-  else if(syncState.connected) html = `<div style="font-size:13px;color:var(--text3)"><span class="status-pill ok"><span class="status-dot ok"></span>Connesso</span>${syncState.lastSync? ' Ultima sincronizzazione: '+new Date(syncState.lastSync).toLocaleString() : ''}</div>`;
-  else html = '<div style="font-size:13px;color:var(--text3)"><span class="status-pill warn"><span class="status-dot warn"></span>Non connesso</span></div>';
-  el.innerHTML = html;
-  const btnPull = document.getElementById('btn-pull'); const btnPush = document.getElementById('btn-push');
-  if(btnPull) btnPull.disabled = !syncState.connected; if(btnPush) btnPush.disabled = !syncState.connected;
+  const active = typeof window.isSupabaseSyncActive === 'function' && window.isSupabaseSyncActive();
+  el.innerHTML = active
+    ? '<div style="font-size:13px;color:var(--text3)"><span class="status-pill ok"><span class="status-dot ok"></span>Supabase connesso</span> — salvataggio automatico attivo</div>'
+    : '<div style="font-size:13px;color:var(--text3)">In attesa di connessione Supabase…</div>';
 }
 // If no explicit login flow is active, show the app and render initial UI
 // === LOGIN SCREEN & AUTH ===
+function authLegalFooter() {
+  return `<p class="login-legal" style="font-size:12px;color:var(--text3);margin-top:16px;text-align:center;line-height:1.55">
+    <a href="pages/terms.html" target="_blank" rel="noopener">Termini di Servizio</a>
+    · <a href="pages/privacy.html" target="_blank" rel="noopener">Privacy Policy</a>
+  </p>`;
+}
+
 function renderLoginScreen(msg) {
   const loginEl = document.getElementById('login-screen');
   if (!loginEl) return;
@@ -436,7 +409,8 @@ function renderLoginScreen(msg) {
       <div class="form-row single"><div class="form-field"><label>Email</label><input id="login-email" class="f-input" type="email" autocomplete="username" style="width:100%"></div></div>
       <div class="form-row single"><div class="form-field"><label>Password</label><input id="login-password" class="f-input" type="password" autocomplete="current-password" style="width:100%"></div></div>
       <div class="modal-actions" style="margin-top:18px"><button class="m-btn primary" onclick="doLogin()">Accedi</button></div>
-      <div class="login-toggle-link"><a href="#" onclick="showRegister()">Non hai un account? Registrati</a></div>
+      <div class="login-toggle-link"><a href="#" onclick="showRegister();return false;">Non hai un account? Registrati — trial 14 giorni</a></div>
+      ${authLegalFooter()}
     </div>
   `;
   loginEl.style.display = 'flex';
@@ -453,7 +427,7 @@ function renderRegisterScreen(msg) {
       <div class="form-row single"><div class="form-field"><label>Email</label><input id="register-email" class="f-input" type="email" autocomplete="username" style="width:100%"></div></div>
       <div class="form-row single"><div class="form-field"><label>Password</label><input id="register-password" class="f-input" type="password" autocomplete="new-password" style="width:100%"></div></div>
       <div class="modal-actions" style="margin-top:18px"><button class="m-btn primary" onclick="doRegister()">Registrati</button></div>
-      <div class="login-toggle-link"><a href="#" onclick="showLogin()">Hai già un account? Accedi</a></div>
+      <div class="login-toggle-link"><a href="#" onclick="showLogin();return false;">Hai già un account? Accedi</a></div>
     </div>
   `;
   loginEl.style.display = 'flex';
@@ -462,15 +436,49 @@ function renderRegisterScreen(msg) {
 window.showLogin = function() { renderLoginScreen(); };
 window.showRegister = function() { renderRegisterScreen(); };
 
-let currentUserRole = 'viewer';
-window.setCurrentUserRole = function(role) {
-  const normalized = String(role || '').toLowerCase();
-  currentUserRole = ['owner', 'admin', 'manager', 'viewer'].includes(normalized) ? normalized : 'viewer';
-};
-window.getCurrentUserRole = function() { return currentUserRole; };
-function isAdmin() {
-  const role = String(currentUserRole || '').toLowerCase();
-  return role === 'owner' || role === 'admin';
+function currentAuthId() {
+  return authUser?.id || authUser?.uid || null;
+}
+
+async function loadProfileById(uid) {
+  if (!uid) return null;
+  const { data, error } = await window.supabaseClient
+    .from('profiles')
+    .select('*')
+    .eq('id', uid)
+    .maybeSingle();
+  if (error) {
+    console.error('loadProfileById', error);
+    return null;
+  }
+  return data;
+}
+
+async function saveProfilePatch(uid, patch) {
+  if (!uid) return false;
+  const payload = Object.assign({ id: uid }, patch || {});
+  const { error } = await window.supabaseClient
+    .from('profiles')
+    .upsert(payload, { onConflict: 'id' });
+  if (error) {
+    console.error('saveProfilePatch', error);
+    return false;
+  }
+  return true;
+}
+
+async function ensureProfileForUser(user) {
+  if (!user || !user.id) return null;
+  let profile = await loadProfileById(user.id);
+  if (profile) return profile;
+  await saveProfilePatch(user.id, {
+    email: user.email || '',
+    role: 'viewer',
+    status: 'pending',
+    created_at: new Date().toISOString()
+  });
+  profile = await loadProfileById(user.id);
+  return profile;
 }
 
 function renderPendingScreen() {
@@ -507,83 +515,211 @@ function renderRejectedScreen() {
 }
 
 
-window.doLogin = function() {
-  ensureFirebaseApp();
+function formatAuthError(e) {
+  const msg = String(e?.message || e?.statusText || e || '');
+  if (/fetch|network|failed to fetch|521|502|503|504|timeout|ECONNREFUSED/i.test(msg)) {
+    return 'Backend Supabase non raggiungibile. Apri supabase.com/dashboard e verifica che il progetto sia attivo (i progetti free in pausa vanno riattivati).';
+  }
+  if (/already registered|already exists|user already registered/i.test(msg)) {
+    return 'Email già registrata — accedi con le tue credenziali.';
+  }
+  if (/invalid email/i.test(msg)) return 'Email non valida';
+  if (/password/i.test(msg) && /short|least|weak/i.test(msg)) return 'Password troppo debole (minimo 8 caratteri)';
+  if (/rate limit|too many/i.test(msg)) return 'Troppi tentativi — riprova tra qualche minuto';
+  return msg.startsWith('Errore') ? msg : ('Errore: ' + msg);
+}
+
+async function checkSupabaseHealth() {
+  try {
+    if (window.supabaseClientReady) await window.supabaseClientReady;
+    if (!window.supabaseClient) return false;
+    const cfg = window.ES_CONFIG || {};
+    if (!cfg.supabaseUrl || !cfg.supabaseAnonKey) return false;
+    const res = await fetch(cfg.supabaseUrl.replace(/\/$/, '') + '/auth/v1/health', {
+      headers: { apikey: cfg.supabaseAnonKey },
+    });
+    return res.ok;
+  } catch (_) {
+    return false;
+  }
+}
+
+async function completePendingTenantRegistration(user) {
+  if (!user?.id || typeof window.registerNewTenant !== 'function') return false;
+  const meta = user.user_metadata || {};
+  const fullName = (meta.full_name || meta.fullName || user.email?.split('@')[0] || '').trim();
+  const companyName = (meta.company_name || meta.companyName || '').trim();
+  if (!companyName) return false;
+  const existing = await loadProfileById(user.id);
+  if (existing?.company_id) return true;
+  await window.registerNewTenant(fullName, companyName);
+  return true;
+}
+
+window.doLogin = async function() {
+  try {
+    if (window.supabaseClientReady) await window.supabaseClientReady;
+  } catch (_) {
+    renderLoginScreen('Impossibile connettersi a Supabase. Ricarica la pagina.');
+    return;
+  }
+  if (!window.supabaseClient || !window.supabaseClient.auth) {
+    renderLoginScreen('Supabase non inizializzato correttamente');
+    return;
+  }
   const email = (document.getElementById('login-email')||{}).value?.trim();
   const password = (document.getElementById('login-password')||{}).value;
   if (!email || !password) { renderLoginScreen('Inserisci email e password'); return; }
-  firebase.auth().signInWithEmailAndPassword(email, password)
-    .then(user => { authUser = user.user; afterLogin(); })
-    .catch(e => {
-      let msg = 'Errore: ' + (e.code || e.message || 'sconosciuto');
-      if (e.code === 'auth/wrong-password' || e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential') msg = 'Email o password non corretti';
-      else if (e.code === 'auth/invalid-email') msg = 'Email non valida';
-      else if (e.code === 'auth/too-many-requests') msg = 'Troppi tentativi, riprova più tardi';
-      renderLoginScreen(msg);
-    });
-};
-
-
-window.doRegister = function() {
-  ensureFirebaseApp();
-  const email = (document.getElementById('register-email')||{}).value?.trim();
-  const password = (document.getElementById('register-password')||{}).value;
-  if (!email || !password) { renderRegisterScreen('Inserisci email e password'); return; }
-  firebase.auth().createUserWithEmailAndPassword(email, password)
-    .then(user => {
-      authUser = user.user;
-      // Nuovo utente: salva come pending/viewer e disconnetti in attesa di approvazione
-      firebase.database().ref('pendingUsers/' + user.user.uid).set({
-        email: email,
-        role: 'viewer',
-        status: 'pending',
-        createdAt: Date.now()
-      }).then(() => {
-        firebase.auth().signOut();
-        authUser = null;
-        renderPendingScreen();
-      }).catch(() => {
-        firebase.auth().signOut();
-        authUser = null;
-        renderPendingScreen();
-      });
-    })
-    .catch(e => { renderRegisterScreen('Errore: '+(e.message||'Impossibile registrare')); });
-};
-
-function afterLogin() {
-  if (!authUser) return;
-  // Verifica lo stato di approvazione dell'utente nel DB
   try {
-    firebase.database().ref('pendingUsers/' + authUser.uid).once('value').then(snap => {
-      const data = snap.val();
-      if (data && data.status === 'pending') {
-        firebase.auth().signOut();
-        authUser = null;
-        renderPendingScreen();
-      } else if (data && data.status === 'rejected') {
-        firebase.auth().signOut();
-        authUser = null;
-        renderRejectedScreen();
-      } else if (data && data.status === 'suspended') {
-        firebase.auth().signOut();
-        authUser = null;
-        renderRejectedScreen();
-      } else {
-        window.setCurrentUserRole(data?.role || 'viewer');
-        proceedAfterLogin();
-      }
-    }).catch(() => { proceedAfterLogin(); });
-  } catch(e) { proceedAfterLogin(); }
+    const { data, error } = await window.supabaseClient.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    authUser = data?.user ? { ...data.user, uid: data.user.id } : null;
+    await afterLogin();
+  } catch (e) {
+    renderLoginScreen(formatAuthError(e));
+  }
+};
+
+
+function renderRegisterFullScreen(msg) {
+  const loginEl = document.getElementById('login-screen');
+  if (!loginEl) return;
+  loginEl.innerHTML = `
+    <div class="login-card">
+      ${renderLoginLogo('Registrazione')}
+      <div class="login-subtitle">Crea il tuo account e inizia il trial gratuito di 14 giorni</div>
+      <div class="login-err" id="register-err" style="display:${msg?'block':'none'}">${msg||''}</div>
+      <div class="form-row single"><div class="form-field"><label>Nome completo</label><input id="register-fullname" class="f-input" type="text" placeholder="Mario Rossi" style="width:100%"></div></div>
+      <div class="form-row single"><div class="form-field"><label>Nome azienda</label><input id="register-company" class="f-input" type="text" placeholder="Acme S.r.l." style="width:100%"></div></div>
+      <div class="form-row single"><div class="form-field"><label>Email</label><input id="register-email" class="f-input" type="email" autocomplete="username" style="width:100%"></div></div>
+      <div class="form-row single"><div class="form-field"><label>Password <span style="color:var(--text3);font-size:12px">(min. 8 caratteri)</span></label><input id="register-password" class="f-input" type="password" autocomplete="new-password" style="width:100%"></div></div>
+      <label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--text2);margin-top:12px;line-height:1.45;cursor:pointer">
+        <input type="checkbox" id="register-terms" style="margin-top:3px">
+        <span>Accetto i <a href="pages/terms.html" target="_blank" rel="noopener" onclick="event.stopPropagation()">Termini di Servizio</a> e la <a href="pages/privacy.html" target="_blank" rel="noopener" onclick="event.stopPropagation()">Privacy Policy</a></span>
+      </label>
+      <div class="modal-actions" style="margin-top:18px"><button class="m-btn primary" onclick="doRegister()">Crea account</button></div>
+      <div class="login-toggle-link"><a href="#" onclick="showLogin();return false;">Hai già un account? Accedi</a></div>
+    </div>
+  `;
+  loginEl.style.display = 'flex';
 }
 
-function proceedAfterLogin() {
-  // Verifica accettazione licenza per questo utente
-  const licKey = 'cm2_license_v1_' + (authUser?.uid || 'guest');
-  if (!localStorage.getItem(licKey)) {
+window.showRegister = function() { renderRegisterFullScreen(); };
+
+window.doRegister = async function() {
+  try {
+    if (window.supabaseClientReady) await window.supabaseClientReady;
+  } catch (_) {
+    renderRegisterFullScreen('Impossibile connettersi a Supabase. Ricarica la pagina.');
+    return;
+  }
+  if (!window.supabaseClient || !window.supabaseClient.auth) {
+    renderRegisterFullScreen('Supabase non inizializzato correttamente');
+    return;
+  }
+  const fullName   = (document.getElementById('register-fullname') ||{}).value?.trim();
+  const companyName= (document.getElementById('register-company')  ||{}).value?.trim();
+  const email      = (document.getElementById('register-email')    ||{}).value?.trim();
+  const password   = (document.getElementById('register-password') ||{}).value;
+  if (!email || !password) { renderRegisterFullScreen('Inserisci email e password'); return; }
+  if (password.length < 8) { renderRegisterFullScreen('La password deve essere di almeno 8 caratteri'); return; }
+  if (!companyName) { renderRegisterFullScreen('Inserisci il nome della tua azienda'); return; }
+  if (!(document.getElementById('register-terms') || {}).checked) {
+    renderRegisterFullScreen('Devi accettare Termini di Servizio e Privacy Policy');
+    return;
+  }
+  try {
+    const { data, error } = await window.supabaseClient.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: fullName || email.split('@')[0],
+          company_name: companyName,
+        },
+      },
+    });
+    if (error) throw error;
+    const user = data?.user || null;
+    const session = data?.session || null;
+
+    if (!user) {
+      renderRegisterFullScreen('Registrazione avviata. Controlla la tua email per confermare l\'account, poi accedi.');
+      return;
+    }
+
+    if (!session) {
+      renderRegisterFullScreen('Account creato! Controlla la tua email, conferma l\'indirizzo e poi accedi — il trial partirà al primo login.');
+      return;
+    }
+
+    authUser = { ...user, uid: user.id };
+    try {
+      await window.registerNewTenant(fullName || email.split('@')[0], companyName);
+    } catch (rpcErr) {
+      console.warn('register_new_tenant RPC:', rpcErr.message);
+      throw new Error(rpcErr.message || 'Impossibile creare l\'azienda. Verifica che le migrazioni SQL siano state applicate su Supabase.');
+    }
+    await afterLogin();
+  } catch (e) {
+    renderRegisterFullScreen(formatAuthError(e));
+  }
+};
+
+async function afterLogin() {
+  if (!authUser) return;
+  try {
+    try {
+      await completePendingTenantRegistration(authUser);
+    } catch (regErr) {
+      console.warn('completePendingTenantRegistration', regErr);
+    }
+
+    let profile = await loadProfileById(authUser.id);
+    if (!profile) profile = await ensureProfileForUser(authUser);
+    if (typeof window.setCurrentUserRole === 'function') {
+      window.setCurrentUserRole(profile?.role || 'viewer');
+    }
+    const status = String(profile?.status || 'approved').toLowerCase();
+    const role = String(profile?.role || '').toLowerCase();
+    const isAdminUser = role === 'owner' || role === 'admin';
+    if (!isAdminUser && status === 'pending') {
+      await window.supabaseClient.auth.signOut();
+      authUser = null;
+      renderPendingScreen();
+      return;
+    }
+    if (!isAdminUser && status === 'rejected') {
+      await window.supabaseClient.auth.signOut();
+      authUser = null;
+      renderRejectedScreen();
+      return;
+    }
+    if (status === 'suspended') {
+      await window.supabaseClient.auth.signOut();
+      authUser = null;
+      renderRejectedScreen();
+      return;
+    }
+    await proceedAfterLogin(profile);
+  } catch(e) {
+    console.error('afterLogin', e);
+    await proceedAfterLogin(null);
+  }
+}
+
+async function proceedAfterLogin(profile) {
+  const licKey = 'cm2_license_v1_' + (currentAuthId() || 'guest');
+  const acceptedLocal = !!localStorage.getItem(licKey);
+  const acceptedRemote = !!profile?.license_accepted_at;
+  if (!acceptedLocal && !acceptedRemote) {
     renderLicenseScreen(licKey);
     return;
   }
+  if (acceptedRemote && !acceptedLocal) {
+    try { localStorage.setItem(licKey, String(profile.license_accepted_at)); } catch(_) {}
+  }
+  await loadUserConfig(profile);
   _doEnterApp();
 }
 
@@ -596,7 +732,7 @@ function renderLicenseScreen(licKey) {
       <div class="license-version">Versione 1.0 — Maggio 2026</div>
       <div class="license-body" id="license-body">
         <h4>Contratto di licenza d'uso del software</h4>
-        <p>Il presente Contratto di Licenza d'Uso ("Contratto") disciplina l'accesso e l'utilizzo della piattaforma <strong>ProrogaPro</strong> (il "Software"), sviluppata e di proprietà esclusiva di <strong>Evolo Fabio</strong> (il "Fornitore").</p>
+        <p>Il presente Contratto di Licenza d'Uso ("Contratto") disciplina l'accesso e l'utilizzo della piattaforma <strong>${APP_NAME}</strong> (il "Software"), sviluppata e di proprietà esclusiva del Fornitore.</p>
 
         <h4>1. Concessione di licenza</h4>
         <p>Il Fornitore concede all'Utente una licenza personale, non esclusiva, non trasferibile e revocabile per l'utilizzo del Software esclusivamente per le finalità di gestione interna dei contratti di lavoro e dei cantieri. È vietato cedere, sublicenziare, distribuire o rivendere il Software o qualsiasi parte di esso.</p>
@@ -605,7 +741,7 @@ function renderLicenseScreen(licKey) {
         <p>Il Software, inclusi codice sorgente, interfaccia grafica, logiche applicative, marchi e documentazione, è di proprietà esclusiva del Fornitore ed è protetto dalla normativa italiana ed europea sul diritto d'autore (L. 633/1941 e D.Lgs. 518/1992). L'Utente non acquista alcun diritto di proprietà sul Software.</p>
 
         <h4>3. Trattamento dei dati personali</h4>
-        <p>I dati inseriti nel Software (inclusi dati di dipendenti e contratti) sono trattati nel rispetto del Regolamento UE 2016/679 (GDPR) e del D.Lgs. 196/2003. I dati sono sincronizzati su infrastruttura Firebase (Google LLC) con sede all'interno dell'UE. L'Utente è responsabile della correttezza e liceità dei dati immessi.</p>
+        <p>I dati inseriti nel Software (inclusi dati di dipendenti e contratti) sono trattati nel rispetto del Regolamento UE 2016/679 (GDPR) e del D.Lgs. 196/2003. I dati applicativi sono gestiti su infrastruttura Supabase (UE). L'Utente e responsabile della correttezza e liceita dei dati immessi.</p>
 
         <h4>4. Limitazione di responsabilità</h4>
         <p>Il Software viene fornito "così com'è". Il Fornitore non garantisce che il Software sia privo di errori, interruzioni o incompatibilità. In nessun caso il Fornitore sarà responsabile per perdite di dati, mancati rinnovi contrattuali, sanzioni o danni diretti/indiretti derivanti dall'utilizzo o dalla non disponibilità del Software. L'Utente è l'unico responsabile delle decisioni aziendali basate sui dati gestiti.</p>
@@ -620,7 +756,7 @@ function renderLicenseScreen(licKey) {
         <p>Il Fornitore si riserva il diritto di sospendere o revocare l'accesso al Software in caso di violazione del presente Contratto, senza obbligo di preavviso e senza alcun obbligo di rimborso.</p>
 
         <h4>8. Contatti</h4>
-        <p>Per qualsiasi richiesta relativa alla licenza o al trattamento dei dati: <strong>evolo434@gmail.com</strong></p>
+        <p>Per qualsiasi richiesta relativa alla licenza o al trattamento dei dati: <strong>${(window.ES_CONFIG&&window.ES_CONFIG.contactEmail)||'support@prorogapro.it'}</strong></p>
       </div>
       <div class="license-scroll-hint" id="license-hint">↓ Scorri per leggere prima di accettare</div>
       <div class="license-accept-row">
@@ -630,7 +766,7 @@ function renderLicenseScreen(licKey) {
         </label>
       </div>
       <div class="modal-actions" style="margin-top:14px">
-        <button class="m-btn" onclick="firebase.auth().signOut();showLogin()">Annulla</button>
+        <button class="m-btn" onclick="doLogout()">Annulla</button>
         <button class="m-btn primary" id="license-accept-btn" disabled onclick="acceptLicense('${licKey}')">Accetta e continua</button>
       </div>
     </div>
@@ -654,56 +790,54 @@ window.onLicenseCbChange = function() {
   if (btn) btn.disabled = !(cb && cb.checked);
 };
 
-window.acceptLicense = function(licKey) {
+window.acceptLicense = async function(licKey) {
   const cb = document.getElementById('license-accept-cb');
   if (!cb || !cb.checked) return;
   const acceptedAt = new Date().toISOString();
   try { localStorage.setItem(licKey, acceptedAt); } catch(_) {}
-  // Salva anche su Firebase per tracciabilità
   if (authUser) {
     try {
-      firebase.database().ref('licenseAcceptance/' + authUser.uid).set({
-        acceptedAt: acceptedAt,
-        email: authUser.email,
-        version: 'v1'
-      });
+      await saveProfilePatch(currentAuthId(), { license_accepted_at: acceptedAt, license_version: 'v1', email: authUser.email || '' });
     } catch(_) {}
   }
   _doEnterApp();
 };
 
-function _doEnterApp() {
+async function _doEnterApp() {
   // Nasconde la schermata di login e mostra la dashboard
   const ls = document.getElementById('login-screen'); if (ls) { ls.innerHTML = ''; ls.style.display = 'none'; }
   const appShell = document.getElementById('app-shell'); if (appShell) appShell.style.display = 'flex';
-  updateNav();
-  renderSidebarCompanies();
-  renderPage();
+  // Carica dati da Supabase prima di renderizzare
+  if (typeof window.initSupabaseSync === 'function') {
+    await window.initSupabaseSync();
+  } else {
+    updateNav();
+    renderSidebarCompanies();
+    renderPage();
+  }
   startAutoSend();
-  initSync();
-  // Registra Service Worker e abilita notifiche push di sistema
+  if (typeof updateSyncUI === 'function') updateSyncUI();
+  if (typeof applyWriteRoleUI === 'function') applyWriteRoleUI();
   if (typeof initPushNotifications === 'function') initPushNotifications();
 }
-// Salva la configurazione utente su Firebase DB
-function saveUserConfig() {
-  if (!authUser) return;
-  const uid = authUser.uid;
+// Salva la configurazione utente su profilo Supabase
+async function saveUserConfig() {
+  const uid = currentAuthId();
+  if (!uid) return;
   const userConfig = {
     settings: emailSettings,
     sync: syncConfig
   };
   try {
-    firebase.database().ref('userConfig/' + uid).set(userConfig);
+    await saveProfilePatch(uid, { settings: userConfig.settings, sync: userConfig.sync, updated_at: new Date().toISOString() });
   } catch(e) { console.error('saveUserConfig', e); }
 }
 
-// Carica la configurazione utente da Firebase DB
-function loadUserConfig() {
+// Carica la configurazione utente da profilo Supabase
+function loadUserConfig(profile) {
   return new Promise((resolve) => {
     if (!authUser) return resolve();
-    const uid = authUser.uid;
-    firebase.database().ref('userConfig/' + uid).once('value').then(snap => {
-      const val = snap.val();
+    const applyConfig = (val) => {
       if (val && val.settings) {
         emailSettings = val.settings;
         save(SK.settings, emailSettings);
@@ -713,7 +847,16 @@ function loadUserConfig() {
         save(SK.sync, syncConfig);
       }
       resolve();
-    }).catch(()=>resolve());
+    };
+
+    if (profile) {
+      applyConfig(profile);
+      return;
+    }
+
+    const uid = currentAuthId();
+    if (!uid) return resolve();
+    loadProfileById(uid).then(p => applyConfig(p || {})).catch(() => resolve());
   });
 }
 window.setSendMethod = v => { emailSettings.sendMethod = v; save(SK.settings, emailSettings); saveUserConfig(); renderPage(); };
@@ -722,6 +865,52 @@ window.toggleAutoSend = checked => { emailSettings.autoSend.enabled = checked; s
 window.toggleDay = d => { const a = emailSettings.autoSend.daysBeforeExpiry; const i = a.indexOf(d); if (i >= 0) a.splice(i, 1); else a.push(d); a.sort((x, y) => y - x); save(SK.settings, emailSettings); saveUserConfig(); renderPage(); };
 window.saveCheckInterval = v => { emailSettings.autoSend.checkIntervalMinutes = Math.max(5, Math.min(1440, v || 60)); save(SK.settings, emailSettings); saveUserConfig(); if (emailSettings.autoSend.enabled) startAutoSend(); };
 window.clearEmailLog = () => { emailLog = []; save(SK.log, []); renderPage(); showToast('Log cancellato'); };
+
+window.loadProfileSettings = async function(){
+  try{
+    if(window.supabaseClientReady) await window.supabaseClientReady;
+    const emailInput=document.getElementById('settings-profile-email');
+    if(!emailInput)return;
+    const result=await window.supabaseClient.auth.getUser();
+    emailInput.value=result?.data?.user?.email||'';
+    const pwdInput=document.getElementById('settings-profile-password');
+    if(pwdInput)pwdInput.value='';
+  }catch(e){ console.error('loadProfileSettings',e); }
+};
+
+window.updateProfileSettings = async function(){
+  const feedback=document.getElementById('settings-profile-feedback');
+  const emailInput=document.getElementById('settings-profile-email');
+  const pwdInput=document.getElementById('settings-profile-password');
+  if(!feedback||!emailInput||!pwdInput)return;
+  feedback.style.display='none';
+  try{
+    if(window.supabaseClientReady) await window.supabaseClientReady;
+    const email=(emailInput.value||'').trim();
+    const password=(pwdInput.value||'').trim();
+    if(email){
+      const { error: emailErr } = await window.supabaseClient.auth.updateUser({ email });
+      if(emailErr) throw emailErr;
+    }
+    if(password){
+      if(password.length < 8) throw new Error('La password deve essere di almeno 8 caratteri');
+      const { error: passErr } = await window.supabaseClient.auth.updateUser({ password });
+      if(passErr) throw passErr;
+    }
+    feedback.textContent='Account aggiornato con successo.';
+    feedback.style.background='var(--green-bg)';
+    feedback.style.color='var(--green)';
+    feedback.style.border='1px solid var(--green-border)';
+    feedback.style.display='block';
+    pwdInput.value='';
+  }catch(err){
+    feedback.textContent=err?.message||'Errore aggiornamento account';
+    feedback.style.background='var(--red-bg)';
+    feedback.style.color='var(--red)';
+    feedback.style.border='1px solid var(--red-border)';
+    feedback.style.display='block';
+  }
+};
 
 window.testEmailJS = async () => {
   if (!isEmailJSConfigured()) { showToast('Configura EmailJS prima'); return; }
@@ -748,37 +937,37 @@ window.loadAdminUsers = function() {
   const container = document.getElementById('admin-users-list');
   if (!container) return;
   container.innerHTML = '<div style="font-size:13px;color:var(--text3)">Caricamento…</div>';
-  ensureFirebaseApp();
-  firebase.database().ref('pendingUsers').once('value').then(snap => {
-    const val = snap.val();
-    if (!val) { container.innerHTML = '<div style="font-size:13px;color:var(--text3)">Nessun utente registrato.</div>'; return; }
-    const users = Object.entries(val).map(([uid, data]) => ({uid, ...data}));
-    users.sort((a, b) => (b.createdAt||0) - (a.createdAt||0));
+  window.supabaseClient.from('profiles').select('id,email,role,status,created_at').order('created_at',{ascending:false}).then(({data,error}) => {
+    if (error) throw error;
+    const me = String(currentAuthId() || '');
+    const users = (data || []).filter(u => String(u.id || '') !== me);
+    if (!users.length) { container.innerHTML = '<div style="font-size:13px;color:var(--text3)">Nessun utente registrato.</div>'; return; }
     const statusLabel = { pending: '⏳ In attesa', approved: '✅ Approvato', rejected: '❌ Rifiutato', suspended: '⛔ Sospeso' };
     const roleLabel = { owner: 'Owner', admin: 'Admin', manager: 'Manager', viewer: 'Viewer' };
     container.innerHTML = users.map(u => `
       <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
         <div style="flex:1">
-          <div style="font-size:13px;font-weight:500">${esc(u.email)}</div>
-          <div style="font-size:11px;color:var(--text3)">${roleLabel[u.role]||u.role||'Viewer'} · ${statusLabel[u.status]||u.status} · ${u.createdAt ? new Date(u.createdAt).toLocaleString('it-IT') : '—'}</div>
+          <div style="font-size:13px;font-weight:500">${esc(u.email||'')}</div>
+          <div style="font-size:11px;color:var(--text3)">${roleLabel[u.role]||u.role||'—'} · ${statusLabel[u.status]||u.status} · ${u.created_at ? new Date(u.created_at).toLocaleString('it-IT') : '—'}</div>
         </div>
         ${u.role === 'owner' ? `
           <span style="font-size:11px;color:var(--text3);font-weight:600">Protetto</span>
         ` : u.status === 'pending' ? `
-          <button class="tb-btn primary" onclick="approveUser('${esc(u.uid)}')">Approva</button>
-          <button class="tb-btn" style="color:var(--danger)" onclick="rejectUser('${esc(u.uid)}')">Rifiuta</button>
+          <button class="tb-btn primary" onclick="approveUser('${esc(u.id)}')">Approva</button>
+          <button class="tb-btn" style="color:var(--danger)" onclick="rejectUser('${esc(u.id)}')">Rifiuta</button>
         ` : u.status === 'approved' ? `
-          <button class="tb-btn" style="color:var(--danger)" onclick="suspendUser('${esc(u.uid)}')">Sospendi</button>
+          <button class="tb-btn" style="color:var(--danger)" onclick="suspendUser('${esc(u.id)}')">Sospendi</button>
         ` : `
-          <button class="tb-btn primary" onclick="approveUser('${esc(u.uid)}')">Riattiva</button>
+          <button class="tb-btn primary" onclick="approveUser('${esc(u.id)}')">Riattiva</button>
         `}
       </div>`).join('');
-  }).catch(e => { if(container) container.innerHTML = '<div style="font-size:13px;color:var(--danger)">Errore caricamento utenti.</div>'; });
+  }).catch(() => { if(container) container.innerHTML = '<div style="font-size:13px;color:var(--danger)">Errore caricamento utenti.</div>'; });
 };
 
 window.approveUser = function(uid) {
   if (!isAdmin()) return;
-  firebase.database().ref('pendingUsers/' + uid).update({ status: 'approved' }).then(() => {
+  saveProfilePatch(uid, { status: 'approved', approved_by: currentAuthId(), updated_at: new Date().toISOString() }).then(ok => {
+    if (!ok) throw new Error('update failed');
     showToast('Utente approvato');
     loadAdminUsers();
   }).catch(() => showToast('Errore durante l\'approvazione'));
@@ -786,7 +975,8 @@ window.approveUser = function(uid) {
 
 window.rejectUser = function(uid) {
   if (!isAdmin()) return;
-  firebase.database().ref('pendingUsers/' + uid).update({ status: 'rejected' }).then(() => {
+  saveProfilePatch(uid, { status: 'rejected', approved_by: currentAuthId(), updated_at: new Date().toISOString() }).then(ok => {
+    if (!ok) throw new Error('update failed');
     showToast('Utente rifiutato');
     loadAdminUsers();
   }).catch(() => showToast('Errore durante il rifiuto'));
@@ -794,7 +984,8 @@ window.rejectUser = function(uid) {
 
 window.suspendUser = function(uid) {
   if (!isAdmin()) return;
-  firebase.database().ref('pendingUsers/' + uid).update({ status: 'suspended' }).then(() => {
+  saveProfilePatch(uid, { status: 'suspended', approved_by: currentAuthId(), updated_at: new Date().toISOString() }).then(ok => {
+    if (!ok) throw new Error('update failed');
     showToast('Utente sospeso');
     loadAdminUsers();
   }).catch(() => showToast('Errore durante la sospensione'));
@@ -805,14 +996,54 @@ function initDemoApp() {
   if (appShell) appShell.style.display = 'flex';
   const cta = document.querySelector('.demo-banner-cta');
   if (cta && window.ES_DEMO && window.ES_DEMO.trialUrl) cta.href = window.ES_DEMO.trialUrl;
+  if (typeof normalizeAllContractsLegal === 'function') normalizeAllContractsLegal();
   updateNav();
   renderSidebarCompanies();
   renderPage();
   if (typeof initPushNotifications === 'function') initPushNotifications();
 }
 
-function checkAuth() {
-  if (typeof isDemoMode === 'function' && isDemoMode()) initDemoApp();
+async function checkAuth() {
+  if (typeof isDemoMode === 'function' && isDemoMode()) {
+    initDemoApp();
+    return;
+  }
+
+  if (!window.supabaseClient || !window.supabaseClient.auth) {
+    const appShell = document.getElementById('app-shell');
+    if (appShell) appShell.style.display = 'none';
+    renderLoginScreen('Impossibile inizializzare l\'autenticazione Supabase');
+    return;
+  }
+
+  try {
+    if (window.supabaseClientReady) await window.supabaseClientReady;
+
+    const { data: { session } } = await window.supabaseClient.auth.getSession();
+    if (session && session.user) {
+      authUser = { ...session.user, uid: session.user.id };
+      await afterLogin();
+    } else {
+      authUser = null;
+      const appShell = document.getElementById('app-shell');
+      if (appShell) appShell.style.display = 'none';
+      renderLoginScreen();
+    }
+  } catch (_) {
+    renderLoginScreen();
+  }
+
+  window.supabaseClient.auth.onAuthStateChange(async (_event, session) => {
+    if (session && session.user) {
+      authUser = { ...session.user, uid: session.user.id };
+      await afterLogin();
+    } else if (document.getElementById('app-shell')?.style.display !== 'none') {
+      authUser = null;
+      const appShell = document.getElementById('app-shell');
+      if (appShell) appShell.style.display = 'none';
+      renderLoginScreen();
+    }
+  });
 }
 
 // Funzioni per indeterminati / cessati / note di lavorazione (spostate qui)
@@ -824,12 +1055,25 @@ window.monthsRemainingTo12 = function(c){
 
 window.markIndeterminate = function(id){
   const c = state.companies.find(x=>x.id===id); if(!c) return;
-  showModal(`<div class="modal-bg" onclick="hideModal()"><div class="modal" onclick="event.stopPropagation()"><h3>Converti a tempo indeterminato</h3><p>Sei sicuro di voler convertire il contratto di <strong>${esc(c.employeeName||c.name)}</strong> a tempo indeterminato?</p><div class="modal-actions"><button class="m-btn" onclick="hideModal()">Annulla</button><button class="m-btn primary" onclick="(function(){hideModal();(function doIt(){const idx=state.companies.findIndex(x=>x.id===${id});if(idx<0)return;state.companies[idx].indeterminate=true;state.companies[idx].renewable=false;saveData();renderPage();renderSidebarCompanies();showToast('Contratto convertito a tempo indeterminato');})();})()">Conferma</button></div></div></div>`);
+  showModal(`<div class="modal-bg" onclick="hideModal()"><div class="modal" onclick="event.stopPropagation()"><h3>Converti a tempo indeterminato</h3><p>Sei sicuro di voler convertire il contratto di <strong>${esc(c.employeeName||c.name)}</strong> a tempo indeterminato?</p><p style="font-size:12px;color:var(--text2)">Verrà creata scadenza UNILAV trasformazione (5 gg).</p><div class="modal-actions"><button class="m-btn" onclick="hideModal()">Annulla</button><button class="m-btn primary" onclick="confirmMarkIndeterminate(${id})">Conferma</button></div></div></div>`);
+}
+window.confirmMarkIndeterminate=function(id){
+  const idx=state.companies.findIndex(x=>x.id===id);if(idx<0)return;
+  state.companies[idx].indeterminate=true;state.companies[idx].renewable=false;
+  if(typeof addComplianceTask==='function') addComplianceTask(state.companies[idx],'unilav_trasformazione',new Date().toISOString().split('T')[0],'Conversione T.I.');
+  hideModal();saveData();renderPage();renderSidebarCompanies();showToast('Convertito a T.I. — UNILAV entro 5 gg');
 }
 
 window.markCessato = function(id){
   const c = state.companies.find(x=>x.id===id); if(!c) return;
-  showModal(`<div class="modal-bg" onclick="hideModal()"><div class="modal" onclick="event.stopPropagation()"><h3>Segna come cessato</h3><p>Segnare come cessato il contratto di <strong>${esc(c.employeeName||c.name)}</strong>?</p><div class="modal-actions"><button class="m-btn" onclick="hideModal()">Annulla</button><button class="m-btn danger" onclick="(function(){hideModal();(function doIt(){const idx=state.companies.findIndex(x=>x.id===${id});if(idx<0)return;state.companies[idx].cessato=true;saveData();renderPage();renderSidebarCompanies();showToast('Contratto segnato come cessato');})();})()">Conferma</button></div></div></div>`);
+  showModal(`<div class="modal-bg" onclick="hideModal()"><div class="modal" onclick="event.stopPropagation()"><h3>Segna come cessato</h3><p>Segnare come cessato il contratto di <strong>${esc(c.employeeName||c.name)}</strong>?</p><p style="font-size:12px;color:var(--text2)">Verrà creata scadenza UNILAV cessazione (5 gg).</p><div class="modal-actions"><button class="m-btn" onclick="hideModal()">Annulla</button><button class="m-btn danger" onclick="confirmMarkCessato(${id})">Conferma</button></div></div></div>`);
+}
+window.confirmMarkCessato=function(id){
+  const idx=state.companies.findIndex(x=>x.id===id);if(idx<0)return;
+  state.companies[idx].cessato=true;
+  const ev=state.companies[idx].endDate||new Date().toISOString().split('T')[0];
+  if(typeof addComplianceTask==='function') addComplianceTask(state.companies[idx],'unilav_cessazione',ev,'Cessazione rapporto');
+  hideModal();saveData();renderPage();renderSidebarCompanies();showToast('Cessato — UNILAV entro 5 gg');
 }
 
 window.openWorkNoteModal = function(id){
