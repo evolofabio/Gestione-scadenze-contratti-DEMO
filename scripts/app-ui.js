@@ -309,8 +309,22 @@ function renderSettingsPage(){
   const allDays=[60,30,15,7,3,1];
   const activeDays=s.autoSend.daysBeforeExpiry||[];
   const ejsOk=isEmailJSConfigured();
+  const demo=typeof isDemoMode==='function'&&isDemoMode();
 
-  return`<div class="settings-card">
+  const accountCard=demo?`<div class="settings-card">
+    <h4><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0116 0"/></svg>Demo interattiva</h4>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:10px">Questa è una versione dimostrativa con dati di esempio. Per salvare contratti reali e attivare sync cloud, registrati alla versione completa.</p>
+    <div class="settings-row">
+      <div class="field-group">
+        <label>Contatto</label>
+        <input class="f-input" type="email" id="settings-profile-email" value="${escAttr(window.ES_DEMO?.contactEmail||'demo@prorogapro.it')}" readonly disabled>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+      <a class="tb-btn primary" href="${escAttr(window.ES_DEMO?.trialUrl||'#')}" target="_blank" rel="noopener">Prova versione completa</a>
+      <button class="tb-btn" onclick="resetDemoData()">Reimposta dati demo</button>
+    </div>
+  </div>`:`<div class="settings-card">
     <h4><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0116 0"/></svg>Account utente</h4>
     <p style="font-size:13px;color:var(--text2);margin-bottom:10px">Aggiorna email di accesso e password del tuo account.</p>
     <div id="settings-profile-feedback" class="legacy-feedback" style="display:none"></div>
@@ -327,7 +341,31 @@ function renderSettingsPage(){
     <div style="display:flex;justify-content:flex-end;margin-top:8px">
       <button class="tb-btn primary" onclick="updateProfileSettings()">Salva account</button>
     </div>
-  </div>
+  </div>`;
+
+  const billingCard=demo?'':`<div class="settings-card">
+    <h4><svg viewBox="0 0 24 24"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>Abbonamento</h4>
+    ${renderBillingSettingsCard()}
+  </div>`;
+
+  const syncCard=demo?'':`<div class="settings-card">
+    <h4><svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>Sincronizzazione Supabase</h4>
+    <p style="font-size:13px;color:var(--text2);margin:8px 0">I contratti sono salvati automaticamente su Supabase dopo ogni modifica. Usa i pulsanti per forzare sync o ricaricare dal cloud.</p>
+    <div id="sync-status"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+      <button class="tb-btn" onclick="pullFromCloud()">Ricarica da cloud</button>
+      <button class="tb-btn requires-write" onclick="forcePushToCloud()">Sincronizza ora</button>
+    </div>
+  </div>`;
+
+  const adminCard=(demo||!isAdmin())?'':`<div class="settings-card">
+    <h4><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>Gestione utenti</h4>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:10px">Approva o rifiuta le richieste di registrazione dei collaboratori.</p>
+    <button class="tb-btn primary" onclick="loadAdminUsers()" style="margin-bottom:12px">Aggiorna lista utenti</button>
+    <div id="admin-users-list"><div style="font-size:13px;color:var(--text3)">Clicca "Aggiorna lista utenti" per vedere le richieste.</div></div>
+  </div>`;
+
+  return`${accountCard}
 
   <div class="settings-card">
     <h4><svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>Metodo invio email</h4>
@@ -379,20 +417,9 @@ function renderSettingsPage(){
     </div>`:'<p style="font-size:13px;color:var(--text2)">Quando attivato, invia email automaticamente ai giorni selezionati prima della scadenza.</p>'}
   </div>
 
-  <div class="settings-card">
-    <h4><svg viewBox="0 0 24 24"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>Abbonamento</h4>
-    ${renderBillingSettingsCard()}
-  </div>
+  ${billingCard}
 
-  <div class="settings-card">
-    <h4><svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>Sincronizzazione Supabase</h4>
-    <p style="font-size:13px;color:var(--text2);margin:8px 0">I contratti sono salvati automaticamente su Supabase dopo ogni modifica. Usa i pulsanti per forzare sync o ricaricare dal cloud.</p>
-    <div id="sync-status"></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-      <button class="tb-btn" onclick="pullFromCloud()">Ricarica da cloud</button>
-      <button class="tb-btn requires-write" onclick="forcePushToCloud()">Sincronizza ora</button>
-    </div>
-  </div>
+  ${syncCard}
 
   <div class="settings-card">
     <h4><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><rect x="4" y="17" width="16" height="4" rx="1"/></svg>Backup e ripristino (JSON)</h4>
@@ -414,12 +441,7 @@ function renderSettingsPage(){
     <button class="tb-btn" style="margin-top:10px" onclick="clearEmailLog()">Cancella log</button>`}
   </div>
 
-  ${isAdmin() ? `<div class="settings-card">
-    <h4><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>Gestione utenti</h4>
-    <p style="font-size:13px;color:var(--text2);margin-bottom:10px">Approva o rifiuta le richieste di registrazione dei collaboratori.</p>
-    <button class="tb-btn primary" onclick="loadAdminUsers()" style="margin-bottom:12px">Aggiorna lista utenti</button>
-    <div id="admin-users-list"><div style="font-size:13px;color:var(--text3)">Clicca "Aggiorna lista utenti" per vedere le richieste.</div></div>
-  </div>` : ''}`;
+  ${adminCard}`;
 }
 
 // ═══════════════════════════════════════

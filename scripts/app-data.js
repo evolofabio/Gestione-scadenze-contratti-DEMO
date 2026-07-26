@@ -384,6 +384,10 @@ function forcePushToCloud(){
 function updateSyncUI(){
   const el = document.getElementById('sync-status');
   if(!el) return;
+  if (typeof isDemoMode === 'function' && isDemoMode()) {
+    el.innerHTML = '<div style="font-size:13px;color:var(--text3)"><span class="status-pill ok"><span class="status-dot ok"></span>Modalità demo</span> — dati salvati solo in memoria locale (non persistenti)</div>';
+    return;
+  }
   const active = typeof window.isSupabaseSyncActive === 'function' && window.isSupabaseSyncActive();
   el.innerHTML = active
     ? '<div style="font-size:13px;color:var(--text3)"><span class="status-pill ok"><span class="status-dot ok"></span>Supabase connesso</span> — salvataggio automatico attivo</div>'
@@ -867,8 +871,16 @@ window.saveCheckInterval = v => { emailSettings.autoSend.checkIntervalMinutes = 
 window.clearEmailLog = () => { emailLog = []; save(SK.log, []); renderPage(); showToast('Log cancellato'); };
 
 window.loadProfileSettings = async function(){
+  if (typeof isDemoMode === 'function' && isDemoMode()) {
+    const emailInput = document.getElementById('settings-profile-email');
+    if (emailInput) emailInput.value = window.ES_DEMO?.contactEmail || 'demo@prorogapro.it';
+    const pwdInput = document.getElementById('settings-profile-password');
+    if (pwdInput) pwdInput.value = '';
+    return;
+  }
   try{
     if(window.supabaseClientReady) await window.supabaseClientReady;
+    if (!window.supabaseClient?.auth) return;
     const emailInput=document.getElementById('settings-profile-email');
     if(!emailInput)return;
     const result=await window.supabaseClient.auth.getUser();
@@ -879,6 +891,10 @@ window.loadProfileSettings = async function(){
 };
 
 window.updateProfileSettings = async function(){
+  if (typeof isDemoMode === 'function' && isDemoMode()) {
+    showToast('Account non modificabile nella demo — registrati per la versione completa');
+    return;
+  }
   const feedback=document.getElementById('settings-profile-feedback');
   const emailInput=document.getElementById('settings-profile-email');
   const pwdInput=document.getElementById('settings-profile-password');
