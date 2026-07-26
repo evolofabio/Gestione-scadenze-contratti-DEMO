@@ -4,7 +4,9 @@
   "description": "ProrogaPro - Gestione Scadenze Contratti: dashboard web per la gestione e il monitoraggio delle scadenze contrattuali aziendali.",
   "main": "index.html",
   "scripts": {
-    "test": "node scripts/capture_console.js --strict"
+    "test": "node scripts/capture_console.js --strict",
+    "screenshots": "node scripts/capture_screenshots.js",
+    "test:e2e": "node scripts/e2e_flow_test.js"
   },
   "keywords": [],
   "author": "",
