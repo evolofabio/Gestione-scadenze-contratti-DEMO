@@ -161,11 +161,30 @@ async function clickNav(page, id, titleFragment) {
     // ── Dashboard: expand card, modals ──
     const firstCard = await page.$('.contract-card');
     if (firstCard) {
-      await firstCard.click();
-      await page.waitForTimeout(400);
-      pass('Espansione card contratto');
+      const details = await page.$('.card-compact-details summary');
+      if (details) {
+        await details.click();
+        await page.waitForTimeout(300);
+        pass('Dettagli card contratto espandibili');
+      } else {
+        await firstCard.click();
+        await page.waitForTimeout(400);
+        pass('Espansione card contratto');
+      }
     } else {
       fail('Card contratto', new Error('nessuna .contract-card'));
+    }
+
+    const menuBtn = await page.$('.card-menu-btn');
+    if (menuBtn) {
+      await menuBtn.click();
+      await page.waitForTimeout(200);
+      const menuOpen = await page.$('.card-menu.open');
+      if (menuOpen) pass('Menu azioni card (···)');
+      else fail('Menu azioni card');
+      await page.evaluate(() => { if (typeof closeCardMenus === 'function') closeCardMenus(); });
+    } else {
+      fail('Pulsante menu card');
     }
 
     // Apri modal modifica
