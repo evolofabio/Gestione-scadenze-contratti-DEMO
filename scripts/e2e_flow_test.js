@@ -80,18 +80,27 @@ async function clickNav(page, id, titleFragment) {
     // ── Navigation ──
     const navItems = [
       ['nav-dashboard', 'Dashboard'],
-      ['nav-calendar', 'Calendario'],
-      ['nav-cantieri', 'Cantieri'],
-      ['nav-clienti', 'Clienti'],
-      ['nav-indeterminati', 'Indeterminati'],
-      ['nav-cessati', 'Cessati'],
-      ['nav-gestite', 'Gestite'],
-      ['nav-terminate', 'Terminate'],
       ['nav-compliance', 'Scadenziario'],
+      ['nav-calendar', 'Calendario'],
+      ['nav-clienti', 'Clienti'],
+      ['nav-contratti', 'Contratti'],
+      ['nav-cantieri', 'Cantieri'],
       ['nav-analytics', 'Analytics'],
       ['nav-settings', 'Impostazioni'],
     ];
     for (const [id, title] of navItems) await clickNav(page, id, title);
+
+    // ── Contratti: filtri unificati ──
+    await page.click('#nav-contratti');
+    await page.waitForTimeout(500);
+    const filterCount = await page.evaluate(() => document.querySelectorAll('.contract-filter-btn').length);
+    if (filterCount >= 6) pass(`Pagina Contratti con ${filterCount} filtri`);
+    else fail('Filtri Contratti', new Error(`attesi 6+, got ${filterCount}`));
+    await page.click('.contract-filter-btn:nth-child(2)');
+    await page.waitForTimeout(400);
+    const filterTitle = await page.textContent('#topbar-title');
+    if (filterTitle && filterTitle.includes('Da gestire')) pass('Filtro Da gestire attivo');
+    else fail('Filtro Da gestire', new Error(`titolo: ${filterTitle}`));
 
     // ── Compliance page content ──
     await page.click('#nav-compliance');
