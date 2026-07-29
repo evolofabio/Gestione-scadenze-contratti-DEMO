@@ -102,9 +102,19 @@ async function clickNav(page, id, titleFragment) {
     if (filterTitle && filterTitle.includes('Da gestire')) pass('Filtro Da gestire attivo');
     else fail('Filtro Da gestire', new Error(`titolo: ${filterTitle}`));
 
-    // ── Compliance page content ──
+    // ── Scadenziario: tab unificate ──
     await page.click('#nav-compliance');
     await page.waitForTimeout(500);
+    const tabGroups = await page.evaluate(() => document.querySelectorAll('.scadenziario-tab-group').length);
+    if (tabGroups >= 2) pass('Scadenziario con tab Quando/Tipo');
+    else fail('Tab Scadenziario', new Error(`gruppi tab: ${tabGroups}`));
+    await page.click('.scadenziario-tab-group:nth-child(2) .day-chip:nth-child(2)');
+    await page.waitForTimeout(400);
+    const unilavTitle = await page.textContent('#topbar-title');
+    if (unilavTitle === 'Scadenziario') pass('Filtro UNILAV attivabile');
+    else fail('Filtro UNILAV');
+
+    // ── Compliance page content ──
     const complianceHtml = await page.$eval('#page-content', el => el.innerHTML);
     if (complianceHtml.includes('UNILAV') || complianceHtml.includes('Adempimenti') || complianceHtml.includes('Scadenziario') || complianceHtml.includes('compliance')) {
       pass('Pagina Scadenziario con contenuto legale');
