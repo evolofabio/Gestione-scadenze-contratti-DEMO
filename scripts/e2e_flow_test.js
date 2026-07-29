@@ -82,11 +82,12 @@ async function clickNav(page, id, titleFragment) {
       ['nav-dashboard', 'Dashboard'],
       ['nav-calendar', 'Calendario'],
       ['nav-cantieri', 'Cantieri'],
+      ['nav-clienti', 'Clienti'],
       ['nav-indeterminati', 'Indeterminati'],
       ['nav-cessati', 'Cessati'],
       ['nav-gestite', 'Gestite'],
       ['nav-terminate', 'Terminate'],
-      ['nav-compliance', 'Compliance'],
+      ['nav-compliance', 'Scadenziario'],
       ['nav-analytics', 'Analytics'],
       ['nav-settings', 'Impostazioni'],
     ];
@@ -96,10 +97,10 @@ async function clickNav(page, id, titleFragment) {
     await page.click('#nav-compliance');
     await page.waitForTimeout(500);
     const complianceHtml = await page.$eval('#page-content', el => el.innerHTML);
-    if (complianceHtml.includes('UNILAV') || complianceHtml.includes('Adempimenti') || complianceHtml.includes('compliance')) {
-      pass('Pagina Compliance con contenuto legale');
+    if (complianceHtml.includes('UNILAV') || complianceHtml.includes('Adempimenti') || complianceHtml.includes('Scadenziario') || complianceHtml.includes('compliance')) {
+      pass('Pagina Scadenziario con contenuto legale');
     } else {
-      fail('Pagina Compliance', new Error('contenuto compliance non trovato'));
+      fail('Pagina Scadenziario', new Error('contenuto scadenziario non trovato'));
     }
     const badge = await page.evaluate(() => {
       const b = document.getElementById('compliance-badge');
