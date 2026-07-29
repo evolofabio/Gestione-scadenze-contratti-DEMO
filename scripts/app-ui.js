@@ -309,22 +309,8 @@ function renderSettingsPage(){
   const allDays=[60,30,15,7,3,1];
   const activeDays=s.autoSend.daysBeforeExpiry||[];
   const ejsOk=isEmailJSConfigured();
-  const demo=typeof isDemoMode==='function'&&isDemoMode();
 
-  const accountCard=demo?`<div class="settings-card">
-    <h4><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0116 0"/></svg>Demo interattiva</h4>
-    <p style="font-size:13px;color:var(--text2);margin-bottom:10px">Questa è una versione dimostrativa con dati di esempio. Per salvare contratti reali e attivare sync cloud, registrati alla versione completa.</p>
-    <div class="settings-row">
-      <div class="field-group">
-        <label>Contatto</label>
-        <input class="f-input" type="email" id="settings-profile-email" value="${escAttr(window.ES_DEMO?.contactEmail||'demo@prorogapro.it')}" readonly disabled>
-      </div>
-    </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
-      <a class="tb-btn primary" href="${escAttr(window.ES_DEMO?.trialUrl||'#')}" target="_blank" rel="noopener">Prova versione completa</a>
-      <button class="tb-btn" onclick="resetDemoData()">Reimposta dati demo</button>
-    </div>
-  </div>`:`<div class="settings-card">
+  return`<div class="settings-card">
     <h4><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0116 0"/></svg>Account utente</h4>
     <p style="font-size:13px;color:var(--text2);margin-bottom:10px">Aggiorna email di accesso e password del tuo account.</p>
     <div id="settings-profile-feedback" class="legacy-feedback" style="display:none"></div>
@@ -341,31 +327,7 @@ function renderSettingsPage(){
     <div style="display:flex;justify-content:flex-end;margin-top:8px">
       <button class="tb-btn primary" onclick="updateProfileSettings()">Salva account</button>
     </div>
-  </div>`;
-
-  const billingCard=demo?'':`<div class="settings-card">
-    <h4><svg viewBox="0 0 24 24"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>Abbonamento</h4>
-    ${renderBillingSettingsCard()}
-  </div>`;
-
-  const syncCard=demo?'':`<div class="settings-card">
-    <h4><svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>Sincronizzazione Supabase</h4>
-    <p style="font-size:13px;color:var(--text2);margin:8px 0">I contratti sono salvati automaticamente su Supabase dopo ogni modifica. Usa i pulsanti per forzare sync o ricaricare dal cloud.</p>
-    <div id="sync-status"></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-      <button class="tb-btn" onclick="pullFromCloud()">Ricarica da cloud</button>
-      <button class="tb-btn requires-write" onclick="forcePushToCloud()">Sincronizza ora</button>
-    </div>
-  </div>`;
-
-  const adminCard=(demo||!isAdmin())?'':`<div class="settings-card">
-    <h4><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>Gestione utenti</h4>
-    <p style="font-size:13px;color:var(--text2);margin-bottom:10px">Approva o rifiuta le richieste di registrazione dei collaboratori.</p>
-    <button class="tb-btn primary" onclick="loadAdminUsers()" style="margin-bottom:12px">Aggiorna lista utenti</button>
-    <div id="admin-users-list"><div style="font-size:13px;color:var(--text3)">Clicca "Aggiorna lista utenti" per vedere le richieste.</div></div>
-  </div>`;
-
-  return`${accountCard}
+  </div>
 
   <div class="settings-card">
     <h4><svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>Metodo invio email</h4>
@@ -417,9 +379,20 @@ function renderSettingsPage(){
     </div>`:'<p style="font-size:13px;color:var(--text2)">Quando attivato, invia email automaticamente ai giorni selezionati prima della scadenza.</p>'}
   </div>
 
-  ${billingCard}
+  <div class="settings-card">
+    <h4><svg viewBox="0 0 24 24"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>Abbonamento</h4>
+    ${renderBillingSettingsCard()}
+  </div>
 
-  ${syncCard}
+  <div class="settings-card">
+    <h4><svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>Sincronizzazione Supabase</h4>
+    <p style="font-size:13px;color:var(--text2);margin:8px 0">I contratti sono salvati automaticamente su Supabase dopo ogni modifica. Usa i pulsanti per forzare sync o ricaricare dal cloud.</p>
+    <div id="sync-status"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+      <button class="tb-btn" onclick="pullFromCloud()">Ricarica da cloud</button>
+      <button class="tb-btn requires-write" onclick="forcePushToCloud()">Sincronizza ora</button>
+    </div>
+  </div>
 
   <div class="settings-card">
     <h4><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><rect x="4" y="17" width="16" height="4" rx="1"/></svg>Backup e ripristino (JSON)</h4>
@@ -441,7 +414,12 @@ function renderSettingsPage(){
     <button class="tb-btn" style="margin-top:10px" onclick="clearEmailLog()">Cancella log</button>`}
   </div>
 
-  ${adminCard}`;
+  ${isAdmin() ? `<div class="settings-card">
+    <h4><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>Gestione utenti</h4>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:10px">Approva o rifiuta le richieste di registrazione dei collaboratori.</p>
+    <button class="tb-btn primary" onclick="loadAdminUsers()" style="margin-bottom:12px">Aggiorna lista utenti</button>
+    <div id="admin-users-list"><div style="font-size:13px;color:var(--text3)">Clicca "Aggiorna lista utenti" per vedere le richieste.</div></div>
+  </div>` : ''}`;
 }
 
 // ═══════════════════════════════════════
@@ -669,6 +647,92 @@ window.doDeleteCantiere=function(contractId,idx){
   if(!c||!Array.isArray(c.cantieri)||!c.cantieri[idx]){hideModal();return}
   const removed=c.cantieri.splice(idx,1)[0];
   saveData();hideModal();renderPage();showToast(`Cantiere "${removed?.nome||''}" eliminato`);
+}
+
+// Render helper: dashboard cockpit (priorità operative)
+function getDashboardPriorityContracts(companies, q, limit){
+  limit = limit == null ? 8 : limit;
+  let list = (companies || []).filter(c => {
+    if (c.indeterminate || c.cessato) return false;
+    const st = c.status || 'da_gestire';
+    if (st === 'gestita' || st === 'terminato') return false;
+    const d = daysLeft(c.endDate);
+    const urgentEnd = d <= 30;
+    const pending = (c.complianceTasks || []).filter(t => t.status !== 'done');
+    const urgentCompliance = pending.some(t => daysLeft(t.dueDate) <= 7);
+    return urgentEnd || urgentCompliance;
+  });
+  if (q) {
+    list = list.filter(c => (`${c.name} ${c.employeeName} ${c.contractType}`).toLowerCase().includes(q));
+  }
+  const sOrd = { da_gestire: 0, gestita: 1, terminato: 2 };
+  list.sort((a, b) => {
+    const sd = (sOrd[a.status || 'da_gestire'] || 0) - (sOrd[b.status || 'da_gestire'] || 0);
+    if (sd !== 0) return sd;
+    return daysLeft(a.endDate) - daysLeft(b.endDate);
+  });
+  return { list: list.slice(0, limit), total: list.length };
+}
+
+function renderDashboardPage(){
+  const expiredCnt = state.companies.filter(c => daysLeft(c.endDate) < 0).length;
+  const weekCnt = state.companies.filter(c => { const d = daysLeft(c.endDate); return d >= 0 && d <= 7; }).length;
+  const companyCount = [...new Set(state.companies.map(c => c.name).filter(Boolean))].length;
+  const legal = typeof getLegalNotifications === 'function' ? getLegalNotifications() : { pending: [], overdue: [] };
+  const adempCnt = (legal.pending || []).length + (legal.overdue || []).length;
+  const q = (state.searchQuery || '').toLowerCase();
+  const priority = getDashboardPriorityContracts(state.companies, q, 8);
+  const legalAlerts = typeof renderLegalBannerHtml === 'function' ? renderLegalBannerHtml({ alertsOnly: true }) : '';
+
+  let html = `<div class="dashboard-hero dashboard-hero--cockpit">
+    <div class="dashboard-hero-copy">
+      <div class="dashboard-kicker">Cockpit operativo</div>
+      <div class="dashboard-title">Priorità di oggi</div>
+      <div class="dashboard-subtitle">Scadenze critiche, adempimenti e azioni immediate — il resto è in Contratti e Scadenziario.</div>
+    </div>
+    <div class="dashboard-hero-actions">
+      <button class="tb-btn" onclick="setPage('compliance')">Scadenziario</button>
+      <button class="tb-btn primary" onclick="openAddModal()">+ Nuovo contratto</button>
+    </div>
+  </div>`;
+
+  html += typeof renderStudioWeekWidget === 'function' ? renderStudioWeekWidget() : '';
+
+  html += `<div class="metrics-grid dashboard-cockpit-kpis">
+    <div class="metric-card m-red"><div class="metric-label">Scaduti</div><div class="metric-val c-red">${expiredCnt}</div></div>
+    <div class="metric-card m-amber"><div class="metric-label">Entro 7 giorni</div><div class="metric-val c-amber">${weekCnt}</div></div>
+    <div class="metric-card"><div class="metric-label">Adempimenti</div><div class="metric-val c-blue">${adempCnt}</div><div class="metric-delta">pendenti o scaduti</div></div>
+    <div class="metric-card"><div class="metric-label">Aziende</div><div class="metric-val">${companyCount}</div><div class="metric-delta">${state.companies.length} contratti</div></div>
+  </div>`;
+
+  if (legalAlerts) {
+    html += `<div class="legal-banner-wrap legal-banner-wrap--alerts">${legalAlerts}</div>`;
+  }
+
+  html += `<div class="section-head dashboard-priority-head">
+    <div>
+      <div class="section-title">Priorità operative (${priority.total})</div>
+      <div class="section-sub">${priority.total ? `Mostrati ${Math.min(priority.list.length, 8)} su ${priority.total} contratti critici` : 'Nessuna criticità nei prossimi 30 giorni'}</div>
+    </div>
+    <button class="tb-btn" onclick="setPage('contratti')">Vedi tutti i contratti</button>
+  </div>`;
+
+  if (!priority.list.length) {
+    html += `<div class="dashboard-all-clear">
+      <div class="dashboard-all-clear-title">Tutto sotto controllo</div>
+      <div class="dashboard-all-clear-sub">Nessun contratto attivo in scadenza entro 30 giorni e nessun adempimento urgente.</div>
+      <div class="dashboard-all-clear-actions">
+        <button class="tb-btn" onclick="setPage('contratti')">Apri elenco contratti</button>
+        <button class="tb-btn" onclick="setPage('clienti')">Portfolio clienti</button>
+      </div>
+    </div>`;
+  } else {
+    html += `<div id="contracts-list" class="dashboard-priority-list">${priority.list.map(c => renderContractCard(c)).join('')}</div>`;
+    if (priority.total > priority.list.length) {
+      html += `<div class="dashboard-priority-more"><button class="tb-btn" onclick="setPage('contratti')">Altri ${priority.total - priority.list.length} contratti critici →</button></div>`;
+    }
+  }
+  return html;
 }
 
 // Render helper: single contract card
@@ -1033,47 +1097,7 @@ function renderPage(){
     let html='';
     switch(state.page){
       case 'dashboard':
-        // Dashboard metrics (quick counts)
-        const expiredCnt = state.companies.filter(c=>daysLeft(c.endDate)<0).length;
-        const urgentCnt = state.companies.filter(c=>{const d=daysLeft(c.endDate);return d>=0&&d<=30}).length;
-        const renewableCnt = state.companies.filter(c=>c.renewable).length;
-        const avgDur = state.companies.length?Math.round(state.companies.reduce((s,c)=>s+durationMonths(c.startDate,c.endDate),0)/state.companies.length):0;
-        const companyCount = [...new Set(state.companies.map(c=>c.name).filter(Boolean))].length;
-        const nextDeadline = state.companies.reduce((best,c)=>{
-          const d=daysLeft(c.endDate);
-          if(d<0)return best;
-          if(best===null||d<best)return d;
-          return best;
-        },null);
-        html+=`<div class="dashboard-hero">
-    <div class="dashboard-hero-copy">
-      <div class="dashboard-kicker">Controllo operativo</div>
-      <div class="dashboard-title">Tutte le scadenze sotto controllo</div>
-      <div class="dashboard-subtitle">Vista unificata di contratti, rinnovi e priorità per gestire rapidamente le prossime azioni.</div>
-    </div>
-    <div><button class="tb-btn primary" onclick="openAddModal()">+ Nuovo contratto</button></div>
-  </div>`;
-        html+=`<div class="legal-banner-wrap">${typeof renderLegalBannerHtml==='function'?renderLegalBannerHtml():''}</div>`;
-        html+=typeof renderStudioWeekWidget==='function'?renderStudioWeekWidget():'';
-        html+=`<div class="metrics-grid" style="margin-bottom:20px">
-    <div class="metric-card"><div class="metric-label">Durata media</div><div class="metric-val">${avgDur}<span style="font-size:16px;font-weight:400"> mesi</span></div></div>
-    <div class="metric-card"><div class="metric-label">Prorogabili</div><div class="metric-val c-blue">${renewableCnt}</div><div class="metric-delta">su ${state.companies.length} totali</div></div>
-    <div class="metric-card m-amber"><div class="metric-label">In scadenza 30gg</div><div class="metric-val c-amber">${urgentCnt}</div></div>
-    <div class="metric-card m-red"><div class="metric-label">Scaduti</div><div class="metric-val c-red">${expiredCnt}</div></div>
-  </div>`;
-        html+=`<div class="dashboard-summary">
-    <div class="summary-chip"><div class="summary-chip-label">Aziende</div><div class="summary-chip-value">${companyCount}</div><div class="summary-chip-meta">anagrafiche gestite</div></div>
-    <div class="summary-chip"><div class="summary-chip-label">Contratti</div><div class="summary-chip-value">${state.companies.length}</div><div class="summary-chip-meta">in monitoraggio</div></div>
-    <div class="summary-chip"><div class="summary-chip-label">Prossima scadenza</div><div class="summary-chip-value">${nextDeadline===null?'—':nextDeadline}</div><div class="summary-chip-meta">${nextDeadline===null?'nessuna futura':'giorni residui'}</div></div>
-  </div>`;
-
-        html+=`<div class="section-head"><div><div class="section-title">Contratti (${state.companies.length})</div><div class="section-sub">Elenco ordinato per urgenza con accesso rapido alle azioni operative.</div></div></div>`;
-        // apply search filter
-        const q=(state.searchQuery||'').toLowerCase();
-        const list=state.companies.filter(c=>!q||(`${c.name} ${c.employeeName} ${c.contractType}`).toLowerCase().includes(q));
-        const sOrd={'da_gestire':0,'gestita':1,'terminato':2};
-        list.sort((a,b)=>{const sd=(sOrd[a.status||'da_gestire']||0)-(sOrd[b.status||'da_gestire']||0);if(sd!==0)return sd;return daysLeft(a.endDate)-daysLeft(b.endDate);});
-        html+=`<div id="contracts-list">${list.map(c=>renderContractCard(c)).join('')}</div>`;
+        html = renderDashboardPage();
         break;
       case 'company':
         html=renderCompanyContracts(state.activeCompany||'');
@@ -1282,7 +1306,7 @@ window.saveContract=function(editId){
 
   const payload={name,employeeName:emp,contractType:resolvedType,startDate:start,endDate:end,adminEmail:admin,companyEmail:company,renewable,renewMonths:months,renewType:rtype,renewNotice:notice,renewCount:rcount,notes,lastContractEndDate,...legalExtra};
 
-  if(editId!==null&&editId!==undefined){
+  if (editId!==null&&editId!==undefined){
     const idx=state.companies.findIndex(c=>c.id===editId);
     if(idx>=0){
       state.companies[idx]={...state.companies[idx],...payload};

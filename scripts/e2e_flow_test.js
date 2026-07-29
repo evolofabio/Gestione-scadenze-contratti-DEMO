@@ -133,10 +133,22 @@ async function clickNav(page, id, titleFragment) {
     );
     if (causale2026) pass('Banner causale 2026 generato'); else fail('Banner causale 2026');
 
-    // ── Dashboard: expand card, modals ──
+    // ── Dashboard cockpit ──
     await page.click('#nav-dashboard');
     await page.waitForTimeout(500);
+    const cockpitOk = await page.evaluate(() => {
+      const title = document.querySelector('.dashboard-title')?.textContent || '';
+      const kpis = document.querySelectorAll('.dashboard-cockpit-kpis .metric-card').length;
+      return title.includes('Priorità') && kpis === 4;
+    });
+    if (cockpitOk) pass('Dashboard cockpit con 4 KPI');
+    else fail('Dashboard cockpit', new Error('layout cockpit non trovato'));
 
+    const vediTutti = await page.$('button[onclick*="setPage(\'contratti\')"]');
+    if (vediTutti) pass('Link Vedi tutti i contratti');
+    else fail('Link Vedi tutti i contratti');
+
+    // ── Dashboard: expand card, modals ──
     const firstCard = await page.$('.contract-card');
     if (firstCard) {
       await firstCard.click();
